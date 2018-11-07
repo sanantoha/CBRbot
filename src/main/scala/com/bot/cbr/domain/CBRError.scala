@@ -10,6 +10,7 @@ object CBRError {
 
   final case class WrongUrl(msg: String) extends CBRError
   final case class WrongXMLFormat(msg: String) extends CBRError
+  final case class WrongCommandInstruction(msg: String) extends CBRError
 }
 
 
