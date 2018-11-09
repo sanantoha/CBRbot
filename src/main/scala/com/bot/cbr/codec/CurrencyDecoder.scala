@@ -1,9 +1,8 @@
 package com.bot.cbr.codec
 
 import com.bot.cbr.domain.CBRError
-//import simulacrum._
 
-//@typeclass
+
 trait CurrencyDecoder[A] {
   def decode(s: String): Either[CBRError, A]
 }
