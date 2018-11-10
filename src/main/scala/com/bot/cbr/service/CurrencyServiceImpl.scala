@@ -5,24 +5,25 @@ import java.time.format.DateTimeFormatter
 
 import cats.ApplicativeError
 import cats.effect._
-import com.bot.cbr.domain.{CBRError, Currency}
-import fs2.Stream
-import io.chrisdavenport.log4cats.Logger
-import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
-import org.http4s.{Header, Headers, Method, Request, Uri}
-import org.http4s.client.blaze.BlazeClientBuilder
-import org.http4s.client.dsl.Http4sClientDsl
-import cats.syntax.either._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
+import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.show._
 import com.bot.cbr.algebra.CurrencyService
 import com.bot.cbr.config.Config
 import com.bot.cbr.domain.CBRError.{WrongUrl, WrongXMLFormat}
+import com.bot.cbr.domain.{CBRError, Currency}
+import fs2.Stream
 import io.chrisdavenport.linebacker.Linebacker
 import io.chrisdavenport.linebacker.contexts.Executors
+import io.chrisdavenport.log4cats.Logger
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
+import org.http4s.client.blaze.BlazeClientBuilder
+import org.http4s.client.dsl.Http4sClientDsl
+import org.http4s.{Header, Headers, Method, Request, Uri}
+
 import scala.xml.XML
 
 
@@ -67,7 +68,7 @@ class CurrencyServiceImpl[F[_] : ConcurrentEffect](config: Config, logger: Logge
     s <- client.stream(req).flatMap(_.body.chunks.through(fs2.text.utf8DecodeC)).reduce(_ + _)
 
     ei <- Stream.eval(Sync[F].delay(XML.loadString(s)).attempt)
-    _ <- Stream.eval(logger.debug(ei.fold(_.getMessage, _.toString)))
+    _ <- Stream.eval(logger.debug(ei.fold(e => s"Error load XML: ${e.getMessage}", el => s"XML loaded: ${el.toString}")))
 
     cur <- ei match {
       case Right(xml) => for {

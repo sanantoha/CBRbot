@@ -5,6 +5,9 @@ version := "0.1"
 
 scalaVersion := "2.12.7"
 
+enablePlugins(JavaAppPackaging)
+enablePlugins(DockerPlugin)
+
 libraryDependencies ++= Seq(
   "org.typelevel" %% "cats-core" % "1.4.0",
   "org.typelevel" %% "cats-effect" % "1.0.0-1182d8c",
@@ -30,3 +33,12 @@ addCompilerPlugin("com.olegpy"     %% "better-monadic-for" % "0.2.4")
 
 wartremoverErrors ++= Warts.unsafe
 wartremoverErrors -= Wart.Any // false warnings
+
+mainClass in Compile := Some("com.bot.cbr.main.CBRbotApp")
+
+
+daemonUser.in(Docker) := "root"
+maintainer.in(Docker) := "san"
+version.in(Docker) := "latest"
+//dockerExposedPorts := Vector(9003)
+dockerRepository := Some("bots")

@@ -31,6 +31,7 @@ class CBRbot[F[_]](botService: BotService[F], currencyService: CurrencyService[F
 
   def handleRawMessage(chatId: Long, message: String): Stream[F, Unit] = message match {
     case `start` | `help` => showHelp(chatId)
+    case `currency` => showCurrency(chatId, message + " all today")
     case curInst if curInst.startsWith(currency) => showCurrency(chatId, message)
     case msg => handleUnknown(chatId, msg)
   }
@@ -43,8 +44,10 @@ class CBRbot[F[_]](botService: BotService[F], currencyService: CurrencyService[F
       "This bot shows currencies:\n" +
         s"`$help` - show this help message\n" +
         s"`$currency` usd - show usd currency\n" +
-        s"`$currency` eur 06.11.2018 - show eur currency on the 10th of November in 2018 year\n" +
-        s"`$currency` all - show all currencies"
+        s"`$currency` eur 06.11.2018 - show eur currency on the 6th of November in 2018 year\n" +
+        s"`$currency` - show all currencies on today\n" +
+        s"`$currency` all - show all currencies on today\n" +
+        s"`$currency` all 2018-11-06 - show all currencies on the 6th of November in 2018 year\n"
     )
 
   def showCurrency(chatId: Long, message: String): Stream[F, Unit] = {
