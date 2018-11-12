@@ -18,13 +18,14 @@ import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import io.circe.generic.auto._
 import org.http4s.circe._
+import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.{EntityDecoder, Uri}
 
 
-class BotServiceImpl[F[_]: ConcurrentEffect](config: Config, logger: Logger[F])(implicit linebacker: Linebacker[F])
-  extends BotService[F] with Http4sClientDsl[F]{
+class BotServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Client[F], logger: Logger[F])
+  extends BotService[F] with Http4sClientDsl[F] {
 
   private val botApiUri = Uri.fromString(config.urlBotapi).leftMap(p => WrongUrl(p.message))
 
@@ -57,7 +58,6 @@ class BotServiceImpl[F[_]: ConcurrentEffect](config: Config, logger: Logger[F])(
     botResponse.result.map(_.update_id).maximumOption
 
   def requestUpdates(fromOffset: Long): Stream[F, (Long, BotResponse[List[BotUpdate]])] = for {
-    client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
     uri <- pollUpdatesUri(fromOffset)
     _ <- Stream.eval(logger.debug(s"pollUpdates uri: ${uri.toString}"))
 
@@ -74,7 +74,6 @@ class BotServiceImpl[F[_]: ConcurrentEffect](config: Config, logger: Logger[F])(
 
 
   override def sendMessage(chatId: Long, message: String): Stream[F, Unit] = for {
-    client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
     uri <- sendMessageUri(chatId, message)
     _ <- Stream.eval(logger.debug(s"sendMessage uri: ${uri.toString}"))
     res <- Stream.eval(client.expect[Unit](uri)).attempt
@@ -101,34 +100,45 @@ class BotServiceImpl[F[_]: ConcurrentEffect](config: Config, logger: Logger[F])(
 
 object BotAPIServiceTest extends IOApp {
 
-  import cats.instances.unit._
-  import cats.syntax.flatMap._
   import cats.syntax.functor._
+  import cats.syntax.show._
+  import com.bot.cbr.domain.BotUpdate._
 
   def runSendMessage[F[_]: ConcurrentEffect]: F[Unit] =
     Executors.unbound[F].map(Linebacker.fromExecutorService[F]).use {
       implicit linebacker: Linebacker[F] =>
-        for {
-          logger <- Slf4jLogger.create
-          service = new BotServiceImpl[F](
-            Config("https://api.telegram.org/bot707606116:AAHR_heXii0M-tWBizoJW1HZvabgaodCxRw",
-              "https://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx"), logger)
-          _ <- service.sendMessage(-311412191, "Bla bla").compile.foldMonoid
-          _ <- service.sendMessage(-311412191, "Hello world!").compile.foldMonoid
+        val res = for {
+          client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
+          logger <- Stream.eval(Slf4jLogger.create)
+
+          config = Config("https://api.telegram.org/bot<Token>",
+            "url")
+
+          service = new BotServiceImpl[F](config, client, logger)
+
+          _ <- service.sendMessage(-311412191, "test!")
+          _ <- service.sendMessage(-311412191, "Hello world!")
         } yield ()
+
+        res.compile.drain
     }
 
   def runPollUpdates[F[_]: ConcurrentEffect]: F[Unit] =
     Executors.unbound[F].map(Linebacker.fromExecutorService[F]).use {
       implicit linebacker: Linebacker[F] =>
-        for {
-          logger <- Slf4jLogger.create
-          service = new BotServiceImpl[F](
-            Config("https://api.telegram.org/bot707606116:AAHR_heXii0M-tWBizoJW1HZvabgaodCxRw",
-              "https://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx"), logger)
-          botUpdate <- service.pollUpdates(1).compile.toList
-          _ <- logger.info(botUpdate.mkString("\n"))
+        val res = for {
+          client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
+          logger <- Stream.eval(Slf4jLogger.create)
+
+          config = Config("https://api.telegram.org/bot<Token>",
+            "url")
+          service = new BotServiceImpl[F](config, client, logger)
+
+          botUpdate <- service.pollUpdates(1)
+          _ <- Stream.eval(logger.info(botUpdate.show))
         } yield ()
+
+        res.compile.drain
     }
 
     override def run(args: List[String]): IO[ExitCode] = {

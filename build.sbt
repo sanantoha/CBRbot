@@ -11,10 +11,14 @@ enablePlugins(DockerPlugin)
 libraryDependencies ++= Seq(
   "org.typelevel" %% "cats-core" % "1.4.0",
   "org.typelevel" %% "cats-effect" % "1.0.0-1182d8c",
+  
   "co.fs2" %% "fs2-core" % "1.0.0",
   "co.fs2" %% "fs2-io" % "1.0.0",
+  
   "org.http4s" %% "http4s-blaze-client" % "0.19.0",
   "org.http4s" %% "http4s-circe" % "0.19.0",
+  "org.http4s" %% "http4s-dsl" % "0.19.0",
+  
   "io.circe" %% "circe-core" % "0.10.1",
   "io.circe" %% "circe-generic" % "0.10.1",
 

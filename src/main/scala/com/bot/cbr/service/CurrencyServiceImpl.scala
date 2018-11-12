@@ -8,7 +8,6 @@ import cats.effect._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.either._
-import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.show._
 import com.bot.cbr.algebra.CurrencyService
@@ -20,14 +19,16 @@ import io.chrisdavenport.linebacker.Linebacker
 import io.chrisdavenport.linebacker.contexts.Executors
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
+import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.{Header, Headers, Method, Request, Uri}
+import cats.instances.string._
 
 import scala.xml.XML
 
 
-class CurrencyServiceImpl[F[_] : ConcurrentEffect](config: Config, logger: Logger[F])(implicit linebacker: Linebacker[F])
+class CurrencyServiceImpl[F[_] : ConcurrentEffect](config: Config, client: Client[F], logger: Logger[F])
   extends CurrencyService[F] with Http4sClientDsl[F] {
 
   def url: Either[CBRError, Uri] =
@@ -62,10 +63,8 @@ class CurrencyServiceImpl[F[_] : ConcurrentEffect](config: Config, logger: Logge
 
 
   override def requestCurrencies(date: LocalDate): Stream[F, Either[CBRError, Currency]] = for {
-
-    client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
     req <- request(date)
-    s <- client.stream(req).flatMap(_.body.chunks.through(fs2.text.utf8DecodeC)).reduce(_ + _)
+    s <- client.stream(req).flatMap(_.body.chunks.through(fs2.text.utf8DecodeC)).foldMonoid
 
     ei <- Stream.eval(Sync[F].delay(XML.loadString(s)).attempt)
     _ <- Stream.eval(logger.debug(ei.fold(e => s"Error load XML: ${e.getMessage}", el => s"XML loaded: ${el.toString}")))
@@ -93,14 +92,18 @@ class CurrencyServiceImpl[F[_] : ConcurrentEffect](config: Config, logger: Logge
 
 object CurrencyClient extends IOApp {
 
-  def runCurrencyService[F[_] : ConcurrentEffect]: F[Vector[Either[Throwable, Currency]]] =
+  def runCurrencyService[F[_] : ConcurrentEffect]: F[Vector[Either[CBRError, Currency]]] =
     Executors.unbound[F].map(Linebacker.fromExecutorService[F]).use {
       implicit linebacker: Linebacker[F] =>
-        for {
-          logger <- Slf4jLogger.create
-          service = new CurrencyServiceImpl[F](Config("token", "https://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx"), logger)
-          res <- service.requestCurrencies(LocalDate.now()).compile.toVector
+        val currencies = for {
+          client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
+          logger <- Stream.eval(Slf4jLogger.create)
+          config = Config("token", "https://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx")
+          service = new CurrencyServiceImpl[F](config, client, logger)
+          res <- service.requestCurrencies(LocalDate.now())
         } yield res
+
+        currencies.compile.toVector
     }
 
 

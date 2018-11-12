@@ -7,21 +7,25 @@ import io.chrisdavenport.linebacker.Linebacker
 import io.chrisdavenport.linebacker.contexts.Executors
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import cats.syntax.functor._
-import cats.syntax.flatMap._
+import fs2.Stream
+import org.http4s.client.blaze.BlazeClientBuilder
 
 object CBRbotApp extends IOApp {
 
   def runBot[F[_]: ConcurrentEffect: ContextShift]: F[ExitCode] =
     Executors.unbound[F].map(Linebacker.fromExecutorService[F]).use {
       implicit linebacker: Linebacker[F] =>
-        for {
-          logger <- Slf4jLogger.create
-          config <- Config.load
-          botService = new BotServiceImpl[F](config, logger)
-          curService = new CurrencyServiceImpl[F](config, logger)
+        val res = for {
+          client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
+          logger <- Stream.eval(Slf4jLogger.create)
+          config <- Stream.eval(Config.load)
+          botService = new BotServiceImpl[F](config, client, logger)
+          curService = new CurrencyServiceImpl[F](config, client, logger)
           bot = new CBRbot(botService, curService, logger)
-          _ <- bot.launch.compile.drain
+          _ <- bot.launch
         } yield ExitCode.Success
+
+        res.compile.lastOrError
     }
 
   override def run(args: List[String]): IO[ExitCode] = runBot[IO]
