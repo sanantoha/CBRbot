@@ -13,6 +13,8 @@ import com.bot.cbr.domain.CurrencyRequest._
 
 class CBRbot[F[_]](botService: BotService[F], currencyService: CurrencyService[F], logger: Logger[F]) {
 
+  import CBRbot._
+
   def launch: Stream[F, Unit] = pollCommands.flatMap {
     case (chatId, message) => handleRawMessage(chatId, message)
   }
@@ -32,7 +34,7 @@ class CBRbot[F[_]](botService: BotService[F], currencyService: CurrencyService[F
   def handleRawMessage(chatId: Long, message: String): Stream[F, Unit] = message match {
     case `start` | `help` => showHelp(chatId)
     case `currency` => showCurrency(chatId, message + " all today")
-    case curInst if curInst.startsWith(currency) => showCurrency(chatId, message)
+    case msg if msg.startsWith(currency) => showCurrency(chatId, msg)
     case msg => handleUnknown(chatId, msg)
   }
 
@@ -77,7 +79,10 @@ class CBRbot[F[_]](botService: BotService[F], currencyService: CurrencyService[F
       _ <- botService.sendMessage(chatId, msg)
     } yield ()
   }
+}
+
+object CBRbot {
 
   def prettyString(cur: Currency, date: LocalDate): String =
-    s"${cur.name} on $date for ${cur.nom} get ${cur.curs}"
+    s"стоимость ${cur.nom} ${cur.name} на $date составляет ${cur.curs}"
 }
