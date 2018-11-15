@@ -2,6 +2,7 @@ package com.bot.cbr.service
 
 import java.util.concurrent.Executors
 
+import cats.Applicative
 import cats.effect.concurrent.Ref
 import cats.effect.{ConcurrentEffect, ContextShift, IO, Sync}
 import com.bot.cbr.UnitSpec
@@ -28,12 +29,17 @@ class BotServiceSpec extends UnitSpec {
   val chatId = 1L
   val msg = "msg"
 
+  implicit def encoder[F[_]: Applicative]: EntityEncoder[F, BotResponse[List[BotUpdate]]] = jsonEncoderOf[F, BotResponse[List[BotUpdate]]]
+
   "BotService" should "send message to chat" in {
     runSendMessage[IO].unsafeRunSync() shouldBe s"$url/sendMessage?chat_id=$chatId&parse_mode=Markdown&text=msg"
   }
 
   "BotService" should "receive messages from chat" in {
-    println(runPollUpdate[IO].unsafeRunSync())
+    val expUrl = s"$url/getUpdates?offset=1&timeout=0.5&allowed_updates=%5B%22message%22%5D"
+    val expBotUpdate = BotUpdate(1L, BotMessage(123L, Chat(chatId), msg.some).some)
+
+    runPollUpdate[IO].unsafeRunSync() shouldBe ((expUrl, expBotUpdate))
   }
 
   def runPollUpdate[F[_]: ConcurrentEffect]: F[(String, BotUpdate)] = for {
@@ -48,7 +54,6 @@ class BotServiceSpec extends UnitSpec {
   } yield (expUrl, botUpdate)
 
   def mkClientForPollUpdate[F[_]: Sync](ref: Ref[F, String]): Client[F] = {
-    implicit val encoder: EntityEncoder[F, BotResponse[List[BotUpdate]]] = jsonEncoderOf[F, BotResponse[List[BotUpdate]]]
 
     val httpApp = HttpApp[F] {
       r => ref.set(r.uri.toString) as Response[F](Ok)
