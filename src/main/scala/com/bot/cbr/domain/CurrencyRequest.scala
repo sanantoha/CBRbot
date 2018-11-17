@@ -19,8 +19,8 @@ object CurrencyRequest {
 
   val dateFormatISO = DateTimeFormatter.ISO_DATE
   val dateFormat = DateTimeFormatter.ofPattern("dd.MM.yyyy")
-  val dateFormatDash = DateTimeFormatter.ofPattern("dd/MM/yyy")
-  val dateFormatSlash = DateTimeFormatter.ofPattern("dd-MM-yyyy")
+  val dateFormatHyphen = DateTimeFormatter.ofPattern("dd/MM/yyy")
+  val dateFormatDash = DateTimeFormatter.ofPattern("dd-MM-yyyy")
 
   implicit val currencyDecoder: CurrencyDecoder[CurrencyRequest] = new CurrencyDecoder[CurrencyRequest] {
     override def decode(s: String): Either[CBRError, CurrencyRequest] =
@@ -37,7 +37,7 @@ object CurrencyRequest {
     case "yesterday" => LocalDate.now.minusDays(1)
     case x => (
       parse(x, dateFormatISO) <+> parse(x, dateFormat) <+>
-        parse(x, dateFormatDash) <+> parse(x, dateFormatSlash)
+        parse(x, dateFormatHyphen) <+> parse(x, dateFormatDash)
       ).getOrElse(LocalDate.now())
   }
 
