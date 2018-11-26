@@ -24,6 +24,6 @@ class ConfigSpec extends UnitSpec {
         load[IO]
     }
 
-    ioRes.unsafeRunSync() shouldBe Config(urlBotapi = "https://URL_BOT/botTOKEN_VALUE", urlCurrency = "URL_CURRENCY")
+    ioRes.unsafeRunSync() shouldBe Config(urlBotapi = "https://URL_BOT/botTOKEN_VALUE", urlCurrency = "URL_CURRENCY", urlMetal = "URL_METAL")
   }
 }

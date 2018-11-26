@@ -150,7 +150,7 @@ class CBRbotSpec extends UnitSpec {
   }
 
   def currencyService[F[_]](ldRef: Ref[F, LocalDate], res: List[Either[CBRError, Currency]]): CurrencyService[F] = new CurrencyService[F] {
-    override def requestCurrencies(date: LocalDate): Stream[F, Either[CBRError, Currency]] =
+    override def getCurrencies(date: LocalDate): Stream[F, Either[CBRError, Currency]] =
       Stream.eval(ldRef.set(date)).drain ++ Stream.emits(res).covary[F]
   }
 

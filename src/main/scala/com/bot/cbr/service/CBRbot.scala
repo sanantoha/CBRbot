@@ -62,7 +62,7 @@ class CBRbot[F[_]](botService: BotService[F], currencyService: CurrencyService[F
     val currencies: Stream[F, Currency] = for {
       CurrencyRequest(currency, date) <- currencyRequest
       _ <- Stream.eval(logger.info(s"showCurrency($chatId, $currency, $date) invokes"))
-      eiCur <- currencyService.requestCurrencies(date)
+      eiCur <- currencyService.getCurrencies(date)
       cur <- eiCur match {
         case Right(cur) => Stream.emit(cur).covary[F]
         case Left(e) => Stream.eval(logger.error(e)(s"Error: ${e.getMessage}")).drain ++ Stream.empty

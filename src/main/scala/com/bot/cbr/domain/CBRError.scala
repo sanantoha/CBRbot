@@ -2,15 +2,16 @@ package com.bot.cbr.domain
 
 import cats.Show
 
-sealed trait CBRError extends Throwable with Product with Serializable
+sealed abstract class CBRError(val msg: String) extends Throwable(msg) with Product with Serializable
 
 object CBRError {
 
   implicit val cbrError: Show[CBRError] = Show.fromToString[CBRError]
 
-  final case class WrongUrl(msg: String) extends CBRError
-  final case class WrongXMLFormat(msg: String) extends CBRError
-  final case class WrongCommandInstruction(msg: String) extends CBRError
+  final case class WrongUrl(override val msg: String) extends CBRError(msg)
+  final case class WrongDateFormat(override val msg: String) extends CBRError(msg)
+  final case class WrongXMLFormat(override val msg: String) extends CBRError(msg)
+  final case class WrongCommandInstruction(override val msg: String) extends CBRError(msg)
 }
 
 

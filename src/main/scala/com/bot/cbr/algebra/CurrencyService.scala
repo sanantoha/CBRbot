@@ -7,5 +7,5 @@ import fs2.Stream
 
 trait CurrencyService[F[_]] {
 
-  def requestCurrencies(date: LocalDate): Stream[F, Either[CBRError, Currency]]
+  def getCurrencies(date: LocalDate): Stream[F, Either[CBRError, Currency]]
 }

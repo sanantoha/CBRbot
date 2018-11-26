@@ -60,9 +60,7 @@ class CurrencyServiceImpl[F[_] : ConcurrentEffect](config: Config, client: Clien
       }
     ))
 
-
-
-  override def requestCurrencies(date: LocalDate): Stream[F, Either[CBRError, Currency]] = for {
+  override def getCurrencies(date: LocalDate): Stream[F, Either[CBRError, Currency]] = for {
     req <- request(date)
     s <- client.stream(req).flatMap(_.body.chunks.through(fs2.text.utf8DecodeC)).foldMonoid
 
@@ -98,9 +96,9 @@ object CurrencyClient extends IOApp {
         val currencies = for {
           client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
           logger <- Stream.eval(Slf4jLogger.create)
-          config = Config("token", "https://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx")
+          config = Config("token", "https://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx", "url")
           service = new CurrencyServiceImpl[F](config, client, logger)
-          res <- service.requestCurrencies(LocalDate.now())
+          res <- service.getCurrencies(LocalDate.now())
         } yield res
 
         currencies.compile.toVector

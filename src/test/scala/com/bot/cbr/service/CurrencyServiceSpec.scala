@@ -84,9 +84,9 @@ class CurrencyServiceSpec extends UnitSpec {
     val currencies = for {
       client <- Stream.emit(mkClient(response)).covary[F]
       logger <- Stream.emit(NoOpLogger.impl[F]).covary[F]
-      config = Config("token", "url")
+      config = Config("token", "url", "url")
       service = new CurrencyServiceImpl[F](config, client, logger)
-      res <- service.requestCurrencies(LocalDate.now())
+      res <- service.getCurrencies(LocalDate.now())
     } yield res
     currencies.compile.toVector
   }

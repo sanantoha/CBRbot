@@ -4,7 +4,7 @@ import cats.effect.{ContextShift, Sync}
 import io.chrisdavenport.linebacker.Linebacker
 import pureconfig.module.catseffect._
 
-final case class Config(urlBotapi: String, urlCurrency: String)
+final case class Config(urlBotapi: String, urlCurrency: String, urlMetal: String)
 
 object Config {
 

@@ -111,8 +111,7 @@ object BotAPIServiceTest extends IOApp {
           client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
           logger <- Stream.eval(Slf4jLogger.create)
 
-          config = Config("https://api.telegram.org/bot<Token>",
-            "url")
+          config = Config("https://api.telegram.org/bot<Token>", "url", "url")
 
           service = new BotServiceImpl[F](config, client, logger)
 
@@ -130,8 +129,7 @@ object BotAPIServiceTest extends IOApp {
           client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
           logger <- Stream.eval(Slf4jLogger.create)
 
-          config = Config("https://api.telegram.org/bot<Token>",
-            "url")
+          config = Config("https://api.telegram.org/bot<Token>", "url", "url")
           service = new BotServiceImpl[F](config, client, logger)
 
           botUpdate <- service.pollUpdates(1)

@@ -46,7 +46,7 @@ class BotServiceSpec extends UnitSpec {
     ref <- Ref[F].of("")
     client = mkClientForPollUpdate(ref)
     logger = NoOpLogger.impl[F]
-    config = Config(url, "url2")
+    config = Config(url, "url2", "url")
 
     service = new BotServiceImpl[F](config, client, logger)
     botUpdate <- service.pollUpdates(0).take(1).compile.lastOrError
@@ -76,7 +76,7 @@ class BotServiceSpec extends UnitSpec {
       ref <- Ref[F].of("")
       client = mkClientForSendingMsg[F](ref)
       logger = NoOpLogger.impl[F]
-      config = Config(url, "url2")
+      config = Config(url, "url2", "url")
       service = new BotServiceImpl[F](config, client, logger)
 
       _ <- service.sendMessage(chatId, msg).compile.drain
