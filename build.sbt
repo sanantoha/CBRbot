@@ -45,4 +45,4 @@ mainClass in Compile := Some("com.bot.cbr.main.CBRbotApp")
 maintainer.in(Docker) := "san"
 version.in(Docker) := "latest"
 //dockerExposedPorts := Vector(9003)
-dockerRepository := Some("bots")
+dockerRepository := Some("sanantoha")
