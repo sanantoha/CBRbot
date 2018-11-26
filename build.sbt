@@ -41,7 +41,7 @@ wartremoverErrors -= Wart.Any // false warnings
 mainClass in Compile := Some("com.bot.cbr.main.CBRbotApp")
 
 
-daemonUser.in(Docker) := "root"
+//daemonUser.in(Docker) := "root" // "daemon" by default
 maintainer.in(Docker) := "san"
 version.in(Docker) := "latest"
 //dockerExposedPorts := Vector(9003)
