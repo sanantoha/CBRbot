@@ -3,9 +3,10 @@ package com.bot.cbr.service
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-import cats.ApplicativeError
+import cats.data.Validated.{Invalid, Valid}
+import cats.{ApplicativeError, ~>}
 import com.bot.cbr.domain.CBRError.WrongXMLFormat
-import cats.data.NonEmptyChain
+import cats.data.{NonEmptyChain, ValidatedNec}
 import cats.effect._
 import com.bot.cbr.algebra.MetalService2
 import com.bot.cbr.config.Config
@@ -27,11 +28,12 @@ import org.http4s.client.blaze.BlazeClientBuilder
 import scala.xml.XML
 
 
-class MetalServiceImpl2[F[_]: ConcurrentEffect: ApplicativeError[?[_], NonEmptyChain[CBRError]]]
+class MetalServiceImpl2[F[_]: ConcurrentEffect,
+                        G[_]: ApplicativeError[?[_], NonEmptyChain[CBRError]]]
                               (config: Config,
                               client: Client[F],
                               logger: Logger[F],
-                              parser: MetalParser[F]) extends MetalService2[F]{
+                              parser: MetalParser[G])(implicit nt: G ~> F) extends MetalService2[F]{
 
   val dateFormat = DateTimeFormatter.ofPattern("dd/MM/YYYY")
   val dateFormatMetal = DateTimeFormatter.ofPattern("dd.MM.yyyy")
@@ -48,43 +50,47 @@ class MetalServiceImpl2[F[_]: ConcurrentEffect: ApplicativeError[?[_], NonEmptyC
     _ <- Stream.eval(logger.info(s"getMetals uri: $uri"))
     s <- Stream.eval(client.expect[String](uri))
     _ <- Stream.eval(logger.info(s"getMetals returns string: $s"))
-    ieXml <- Stream.eval(Sync[F].delay(XML.loadString(s))).attempt
+    eiXml <- Stream.eval(Sync[F].delay(XML.loadString(s))).attempt
 
-    res <- ieXml match {
+    metal <- eiXml match {
       case Right(xml) => for {
         records <- Stream.eval(Sync[F].delay((xml \\ "Record").toList))
         record <- Stream.emits(records).covary[F]
-        _ <- Stream.eval(logger.debug("Try to parse line: " + record.toString()))
-        eMetal <- Stream.eval(parser.parse(record))
+        _ <- Stream.eval(logger.info("Try to parse line: " + record.toString()))
+        eMetal <- Stream.eval(nt(parser.parse(record)))
       } yield eMetal
 
       case Left(e) =>
         Stream.eval(logger.error(e)(s"Error while parse xml")).drain ++
-          Stream.eval(NonEmptyChain.one(WrongXMLFormat(e.getMessage): CBRError).raiseError[F, Metal])
+          Stream.eval(nt(NonEmptyChain.one(WrongXMLFormat(e.getMessage): CBRError).raiseError[G, Metal]))
     }
+//    res <- eiMetal match {
+//      case Right(metal) =>
+//        Stream.eval(logger.info(s"getMetals returns metal: $metal")).drain ++ Stream.emit(metal).covary[F]
+//      case Left(e) => Stream.e
+//    }
 
-//    _ <- Stream.eval(res.attempt.traverse {
-//      case Right(metal) => logger.info(s"getMetals returns metal: $metal")
-//      case Left(nec) => nec.toChain.traverse_(e => logger.error(e)(e.msg))
-//    })
-
-  } yield res
+  } yield metal
 }
 
 
 object MetalServiceClient2 extends IOApp {
 
-  def runMetalService[F[_] : ConcurrentEffect: ApplicativeError[?[_], NonEmptyChain[CBRError]]](): F[Vector[Metal]] =
+  def runMetalService[F[_] : ConcurrentEffect, G[_]: ApplicativeError[?[_], NonEmptyChain[CBRError]]](implicit nt: G ~> F): F[Vector[Either[Throwable, Metal]]] =
     Executors.unbound[F].map(Linebacker.fromExecutorService[F]).use {
       implicit linebacker: Linebacker[F] =>
         val metals = for {
           client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
           logger <- Stream.eval(Slf4jLogger.create)
-          parser = new MetalParser[F]()
-          metalService = new MetalServiceImpl2[F](Config("url", "url", "http://www.cbr.ru/scripts/xml_metall.asp"), client, logger, parser)
-          eiMetal <- metalService.getMetals(LocalDate.now, LocalDate.now)
-          _ <- Stream.eval(logger.info(eiMetal.show))
-//          _ <- Stream.eval(logger.info(eiMetal.fold(nec => nec.toString, _.show)))
+          parser = new MetalParser[G]()
+          metalService = new MetalServiceImpl2[F, G](
+            Config("url", "url", "http://www.cbr.ru/scripts/xml_metall.asp"),
+            client,
+            logger,
+            parser)
+          eiMetal <- metalService.getMetals(LocalDate.now, LocalDate.now).attempt
+//          _ <- Stream.eval(logger.info(eiMetal.show))
+          _ <- Stream.eval(logger.info(eiMetal.fold(nec => "Error: " + nec.toString, _.show)))
 //          _ <- Stream.eval(eiMetal.traverse(m => logger.info(m.show)))
         } yield eiMetal
 
@@ -92,8 +98,17 @@ object MetalServiceClient2 extends IOApp {
     }
 
   override def run(args: List[String]): IO[ExitCode] = {
-    ???
-//    runMetalService[IO]() map println as ExitCode.Success
+    import cats.syntax.apply._
+
+    implicit val nt = new (ValidatedNec[CBRError, ?] ~> IO) {
+      override def apply[A](fa: ValidatedNec[CBRError, A]): IO[A] = fa match {
+        case Valid(x) => IO(x)
+        case Invalid(nec) => IO{println("NT: " + nec.toString)} *> nec.tail.foldLeft(IO.raiseError(nec.head)) {
+          case (acc, x) => acc *> IO.raiseError(x)
+        }
+      }
+    }
+    runMetalService[IO, ValidatedNec[CBRError, ?]] map println as ExitCode.Success
   }
 
 }

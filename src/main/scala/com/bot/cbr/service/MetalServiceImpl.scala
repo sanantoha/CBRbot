@@ -50,9 +50,9 @@ class MetalServiceImpl[F[_] : ConcurrentEffect,
     _ <- Stream.eval(logger.info(s"getMetals uri: $uri"))
     s <- Stream.eval(client.expect[String](uri))
     _ <- Stream.eval(logger.info(s"getMetals returns string: $s"))
-    ieXml <- Stream.eval(Sync[F].delay(XML.loadString(s))).attempt
+    eiXml <- Stream.eval(Sync[F].delay(XML.loadString(s))).attempt
 
-    res <- ieXml match {
+    res <- eiXml match {
       case Right(xml) => for {
         records <- Stream.eval(Sync[F].delay((xml \\ "Record").toList))
         record <- Stream.emits(records).covary[F]
@@ -85,7 +85,6 @@ object MetalServiceClient extends IOApp {
           parser = new MetalParser[G]()
           metalService = new MetalServiceImpl[F, G](Config("url", "url", "http://www.cbr.ru/scripts/xml_metall.asp"), client, logger, parser)
           eiMetal <- metalService.getMetals(LocalDate.now, LocalDate.now)
-//          _ <- Stream.eval(logger.info(eiMetal.fold(nec => nec.toString, _.show)))
           _ <- Stream.eval(eiMetal.traverse(m => logger.info(m.show)))
         } yield eiMetal
 
@@ -93,23 +92,6 @@ object MetalServiceClient extends IOApp {
     }
 
   override def run(args: List[String]): IO[ExitCode] = {
-    //    val str = "<Record Code=\"1\" Date=\"21.11.2018\"><Buy>2579,12</Buy><Sell>2579,12</Sell></Record>"
-    //
-    //    val xml = XML.loadString(str)
-    //
-    //    val strVal = (xml \\ "Buy").text
-    ////    Locale.setDefault()
-    //    Locale.setDefault(new Locale("ru", "RU"))
-    //    val decimalFormat = new DecimalFormat()
-    //
-    //    IO {
-    //      println(strVal)
-    //      println(
-    //        decimalFormat.parse(strVal)
-    //      )
-    //    } as ExitCode.Success
-    //
-
     runMetalService[IO, ValidatedNec[CBRError, ?]]() map println as ExitCode.Success
   }
 

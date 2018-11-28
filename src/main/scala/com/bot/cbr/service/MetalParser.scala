@@ -42,7 +42,7 @@ class MetalParser[G[_]: Apply: ApplicativeError[?[_], NonEmptyChain[CBRError]]](
     Either.catchNonFatal {
       val df = new DecimalFormat()
       BigDecimal(df.parse((record \\ name).text).doubleValue())
-//      println(df)
+////      println(df)
 //      BigDecimal((record \\ name).text)
     }.leftMap(e => NonEmptyChain.one(WrongXMLFormat(e.getMessage): CBRError)).raiseOrPure
 }
