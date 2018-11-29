@@ -30,10 +30,10 @@ import scala.xml.XML
 
 class MetalServiceImpl2[F[_]: ConcurrentEffect,
                         G[_]: ApplicativeError[?[_], NonEmptyChain[CBRError]]]
-                              (config: Config,
+(config: Config,
                               client: Client[F],
                               logger: Logger[F],
-                              parser: MetalParser[G])(implicit nt: G ~> F) extends MetalService2[F]{
+                              parser: MetalParserImpl[G])(implicit nt: G ~> F) extends MetalService2[F]{
 
   val dateFormat = DateTimeFormatter.ofPattern("dd/MM/YYYY")
   val dateFormatMetal = DateTimeFormatter.ofPattern("dd.MM.yyyy")
@@ -82,7 +82,7 @@ object MetalServiceClient2 extends IOApp {
         val metals = for {
           client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
           logger <- Stream.eval(Slf4jLogger.create)
-          parser = new MetalParser[G]()
+          parser = new MetalParserImpl[G]()
           metalService = new MetalServiceImpl2[F, G](
             Config("url", "url", "http://www.cbr.ru/scripts/xml_metall.asp"),
             client,

@@ -32,7 +32,7 @@ class MetalServiceImpl[F[_] : ConcurrentEffect,
                             (config: Config,
                              client: Client[F],
                              logger: Logger[F],
-                             parser: MetalParser[G]
+                             parser: MetalParserImpl[G]
                             ) extends MetalService[F, G] {
 
   val dateFormat = DateTimeFormatter.ofPattern("dd/MM/YYYY")
@@ -82,7 +82,7 @@ object MetalServiceClient extends IOApp {
         val metals = for {
           client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
           logger <- Stream.eval(Slf4jLogger.create)
-          parser = new MetalParser[G]()
+          parser = new MetalParserImpl[G]()
           metalService = new MetalServiceImpl[F, G](Config("url", "url", "http://www.cbr.ru/scripts/xml_metall.asp"), client, logger, parser)
           eiMetal <- metalService.getMetals(LocalDate.now, LocalDate.now)
           _ <- Stream.eval(eiMetal.traverse(m => logger.info(m.show)))

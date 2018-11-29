@@ -12,16 +12,17 @@ import com.bot.cbr.domain.{CBRError, Metal, MetalType}
 import com.bot.cbr.domain.MetalType.lookUpMetalType
 import cats.syntax.apply._
 import cats.syntax.either._
+import com.bot.cbr.algebra.MetalParser
 
 import scala.xml.Node
 
-class MetalParser[G[_]: Apply: ApplicativeError[?[_], NonEmptyChain[CBRError]]]() {
+class MetalParserImpl[F[_]: Apply: ApplicativeError[?[_], NonEmptyChain[CBRError]]]() extends MetalParser[F] {
 
   Locale.setDefault(new Locale("ru", "RU"))
 
   val dateFormatMetal = DateTimeFormatter.ofPattern("dd.MM.yyyy")
 
-  def parse(record: Node): G[Metal] = {
+  def parse(record: Node): F[Metal] = {
     (parseMetalType(record),
       parseDate(record),
       parseBigDecimal(record, "Buy"),
@@ -29,16 +30,16 @@ class MetalParser[G[_]: Apply: ApplicativeError[?[_], NonEmptyChain[CBRError]]](
     ).mapN(Metal.apply)
   }
 
-  def parseMetalType(record: Node): G[MetalType] =
-    Either.catchNonFatal(lookUpMetalType((record \ "@Code").toString().toInt))
+  def parseMetalType(record: Node): F[MetalType] =
+    Either.catchNonFatal(lookUpMetalType((record \ "@Code").text.toInt))
       .leftMap(e => NonEmptyChain.one(WrongXMLFormat(e.getMessage): CBRError)).raiseOrPure
 
-  def parseDate(record: Node): G[LocalDate] =
+  def parseDate(record: Node): F[LocalDate] =
     Either.catchNonFatal {
-      LocalDate.parse((record \ "@Date").toString(), dateFormatMetal)
+      LocalDate.parse((record \ "@Date").text, dateFormatMetal)
     }.leftMap(e => NonEmptyChain.one(WrongXMLFormat(e.getMessage): CBRError)).raiseOrPure
 
-  def parseBigDecimal(record: Node, name: String): G[BigDecimal] =
+  def parseBigDecimal(record: Node, name: String): F[BigDecimal] =
     Either.catchNonFatal {
       val df = new DecimalFormat()
       BigDecimal(df.parse((record \\ name).text).doubleValue())
