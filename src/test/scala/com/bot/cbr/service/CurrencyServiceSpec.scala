@@ -3,12 +3,9 @@ package com.bot.cbr.service
 import java.time.LocalDate
 import java.util.concurrent.Executors
 
-import cats.effect.{ConcurrentEffect, ContextShift, IO, Sync}
+import cats.effect.{ConcurrentEffect, ContextShift, IO}
 import com.bot.cbr.{ReadData, UnitSpec}
-import org.http4s.{HttpApp, Response}
-import org.http4s.client.Client
-import org.http4s.dsl.io._
-import cats.syntax.applicative._
+import com.bot.cbr.utils._
 import com.bot.cbr.config.Config
 import com.bot.cbr.domain.{CBRError, Currency}
 import fs2.Stream
@@ -89,12 +86,5 @@ class CurrencyServiceSpec extends UnitSpec {
       res <- service.getCurrencies(LocalDate.now())
     } yield res
     currencies.compile.toVector
-  }
-
-
-  def mkClient[F[_] : Sync](response: String): Client[F] = {
-    val httpApp = HttpApp[F](_ => Response[F](Ok).withEntity(response).pure[F])
-
-    Client.fromHttpApp[F](httpApp)
   }
 }
