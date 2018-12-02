@@ -5,7 +5,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-import cats.{ApplicativeError, Apply}
+import cats.ApplicativeError
 import cats.data.NonEmptyChain
 import com.bot.cbr.domain.CBRError.WrongXMLFormat
 import com.bot.cbr.domain.{CBRError, Metal, MetalType}
@@ -16,7 +16,7 @@ import com.bot.cbr.algebra.MetalParser
 
 import scala.xml.Node
 
-class MetalParserImpl[F[_]: Apply: ApplicativeError[?[_], NonEmptyChain[CBRError]]]() extends MetalParser[F] {
+class MetalParserImpl[F[_]: ApplicativeError[?[_], NonEmptyChain[CBRError]]]() extends MetalParser[F] {
 
   Locale.setDefault(new Locale("ru", "RU"))
 

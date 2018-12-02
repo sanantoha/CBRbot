@@ -5,7 +5,7 @@ import java.util.concurrent.Executors
 
 import cats.data.Validated.Valid
 import cats.data.{NonEmptyChain, ValidatedNec}
-import cats.{ApplicativeError, Apply, Traverse}
+import cats.{ApplicativeError, Traverse}
 import cats.effect.{ConcurrentEffect, ContextShift, IO}
 import com.bot.cbr.{ReadData, UnitSpec}
 import com.bot.cbr.domain.{CBRError, Metal}
@@ -38,7 +38,7 @@ class MetalServiceSpec extends UnitSpec {
   }
 
   def runMetalService[F[_]: ConcurrentEffect,
-                      G[_]: Traverse: Apply: ApplicativeError[?[_], NonEmptyChain[CBRError]]](response: String): F[Vector[G[Metal]]] = {
+                      G[_]: Traverse: ApplicativeError[?[_], NonEmptyChain[CBRError]]](response: String): F[Vector[G[Metal]]] = {
     val metals = for {
       client <- Stream.emit(mkClient[F](response)).covary[F]
       logger <- Stream.emit(NoOpLogger.impl[F]).covary[F]
@@ -50,7 +50,7 @@ class MetalServiceSpec extends UnitSpec {
   }
 
   def runTest[F[_]: ConcurrentEffect: ContextShift,
-              G[_]: Traverse: Apply: ApplicativeError[?[_], NonEmptyChain[CBRError]]](): F[Vector[G[Metal]]] = {
+              G[_]: Traverse: ApplicativeError[?[_], NonEmptyChain[CBRError]]](): F[Vector[G[Metal]]] = {
     E.unbound[F].map(Linebacker.fromExecutorService[F]).use {
       implicit linebacker: Linebacker[F] =>
         for {
