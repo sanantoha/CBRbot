@@ -3,13 +3,14 @@ package com.bot.cbr.domain
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-import com.bot.cbr.codec.CurrencyDecoder
+import cats.data.EitherNec
+import com.bot.cbr.codec.Decoder
 import com.bot.cbr.domain.CBRError.WrongCommandInstruction
 import cats.syntax.either._
 import cats.syntax.semigroupk._
 import cats.instances.option._
 
-case class CurrencyRequest(name: String, date: LocalDate)
+final case class CurrencyRequest(name: String, date: LocalDate)
 
 object CurrencyRequest {
 
@@ -22,12 +23,12 @@ object CurrencyRequest {
   val dateFormatSlash = DateTimeFormatter.ofPattern("dd/MM/yyy")
   val dateFormatHyphen = DateTimeFormatter.ofPattern("dd-MM-yyyy")
 
-  implicit val currencyDecoder: CurrencyDecoder[CurrencyRequest] = new CurrencyDecoder[CurrencyRequest] {
-    override def decode(s: String): Either[CBRError, CurrencyRequest] =
+  implicit val currencyDecoder: Decoder[CurrencyRequest] = new Decoder[CurrencyRequest] {
+    override def decode(s: String): EitherNec[CBRError, CurrencyRequest] =
       s.replaceAll(currency, "").trim.split(" ").map(_.trim) match {
-        case Array(cur, date) => CurrencyRequest(cur, parseDate(date)).asRight[CBRError]
-        case Array(cur) if !cur.isEmpty => CurrencyRequest(cur, LocalDate.now).asRight[CBRError]
-        case msg => WrongCommandInstruction(s"Could not parse currency ${msg.mkString(",")}").asLeft[CurrencyRequest]
+        case Array(cur, date) => CurrencyRequest(cur, parseDate(date)).rightNec[CBRError]
+        case Array(cur) if !cur.isEmpty => CurrencyRequest(cur, LocalDate.now).rightNec[CBRError]
+        case msg => WrongCommandInstruction(s"Could not parse currency ${msg.mkString(",")}").leftNec[CurrencyRequest]
       }
   }
 
