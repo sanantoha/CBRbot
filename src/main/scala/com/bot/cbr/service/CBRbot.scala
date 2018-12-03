@@ -9,6 +9,7 @@ import com.bot.cbr.domain.{Currency, CurrencyRequest}
 import fs2.Stream
 import io.chrisdavenport.log4cats.Logger
 import com.bot.cbr.codec.syntax._
+import com.bot.cbr.domain._
 import com.bot.cbr.domain.CurrencyRequest._
 
 class CBRbot[F[_]](botService: BotService[F], currencyService: CurrencyService[F], logger: Logger[F]) {

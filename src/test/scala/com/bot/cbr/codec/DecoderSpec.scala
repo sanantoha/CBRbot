@@ -3,7 +3,7 @@ package com.bot.cbr.codec
 import java.time.LocalDate
 
 import com.bot.cbr.UnitSpec
-import com.bot.cbr.domain.{CBRError, CurrencyRequest}
+import com.bot.cbr.domain.{CBRError, CurrencyRequest, MetalRequest}
 import com.bot.cbr.codec.syntax._
 import cats.syntax.either._
 import com.bot.cbr.domain.CBRError.WrongCommandInstruction
@@ -54,4 +54,29 @@ class DecoderSpec extends UnitSpec {
       CurrencyRequest("all", LocalDate.now.plusDays(1)).rightNec[CBRError]
   }
 
+  it should "parse metal request on today" in {
+    "/metal all today today".decode[MetalRequest] shouldBe MetalRequest("all", LocalDate.now, LocalDate.now).rightNec[CBRError]
+  }
+
+  it should "parse metal request on today short version" in {
+    "/metal all today".decode[MetalRequest] shouldBe MetalRequest("all", LocalDate.now, LocalDate.now).rightNec[CBRError]
+  }
+
+  it should "parse gold metal reques on tomorrow" in {
+    val expDate = LocalDate.now.plusDays(1)
+
+    "/metal gold tomorrow".decode[MetalRequest] shouldBe MetalRequest("gold", expDate, expDate).rightNec[CBRError]
+  }
+
+  it should "parse silver metal request on yesterday" in {
+    val expDate = LocalDate.now.minusDays(1)
+
+    "/metal silver yesterday".decode[MetalRequest] shouldBe MetalRequest("silver", expDate, expDate).rightNec[CBRError]
+  }
+
+  it should "parse platinum metal request on 10.12.2018 - 20.12.2018" in {
+    val expDate = LocalDate.of(2018, 12, 20)
+
+    "/metal platinum 10.12.2018 20.12.2018".decode[MetalRequest] shouldBe MetalRequest("platinum", ld, expDate).rightNec[CBRError]
+  }
 }
