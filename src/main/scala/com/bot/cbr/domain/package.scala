@@ -9,11 +9,11 @@ import cats.instances.option._
 
 package object domain {
 
-  val help = "?"
-  val start = "/start"
-  val currency = "/currency"
+  val helpMsg = "?"
+  val startMsg = "/start"
+  val currencyMsg = "/currency"
 
-  val metal = "/metal"
+  val metalMsg = "/metal"
 
   val dateFormatISO = DateTimeFormatter.ISO_DATE
   val dateFormat = DateTimeFormatter.ofPattern("dd.MM.yyyy")

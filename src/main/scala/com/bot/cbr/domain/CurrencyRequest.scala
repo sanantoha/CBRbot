@@ -13,7 +13,7 @@ object CurrencyRequest {
 
   implicit val currencyDecoder: Decoder[CurrencyRequest] = new Decoder[CurrencyRequest] {
     override def decode(s: String): EitherNec[CBRError, CurrencyRequest] =
-      s.replaceAll(currency, "").trim.split(" ").map(_.trim) match {
+      s.replaceAll(currencyMsg, "").trim.split(" ").map(_.trim) match {
         case Array(cur, date) => CurrencyRequest(cur, parseDate(date)).rightNec[CBRError]
         case Array(cur) if !cur.isEmpty => CurrencyRequest(cur, LocalDate.now).rightNec[CBRError]
         case msg => WrongCommandInstruction(s"Could not parse currency ${msg.mkString(",")}").leftNec[CurrencyRequest]

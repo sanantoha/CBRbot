@@ -42,8 +42,8 @@ class MetalServiceSpec extends UnitSpec {
     val metals = for {
       client <- Stream.emit(mkClient[F](response)).covary[F]
       logger <- Stream.emit(NoOpLogger.impl[F]).covary[F]
-      parser = new MetalParserImpl[G]
-      metalService = new MetalServiceImpl[F, G](Config("url", "url", "url"), client, logger, parser)
+      parser = new MetalParserImpl[G, NonEmptyChain[CBRError]](NonEmptyChain.one)
+      metalService = new MetalServiceImpl[F, G](Config("url", "url", "url"), client, parser, logger)
       res <- metalService.getMetals(LocalDate.now, LocalDate.now)
     } yield res
     metals.compile.toVector

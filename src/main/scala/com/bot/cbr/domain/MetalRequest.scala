@@ -13,7 +13,7 @@ object MetalRequest {
 
   implicit val metalDecoder: Decoder[MetalRequest] = new Decoder[MetalRequest] {
     override def decode(s: String): EitherNec[CBRError, MetalRequest] = {
-      s.replaceAll(metal, "").trim.split(" ").map(_.trim) match {
+      s.replaceAll(metalMsg, "").trim.split(" ").map(_.trim) match {
         case Array(m, start, end) => MetalRequest(m, parseDate(start), parseDate(end)).rightNec[CBRError]
         case Array(m, start) =>
           val date = parseDate(start)
