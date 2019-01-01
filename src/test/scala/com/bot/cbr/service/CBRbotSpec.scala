@@ -3,16 +3,14 @@ package com.bot.cbr.service
 import java.time.LocalDate
 import java.util.concurrent.Executors
 
-import cats.data.{EitherNec, NonEmptyChain}
 import cats.effect.concurrent.Ref
 import cats.effect.{ContextShift, IO, Sync}
-import cats.instances.either._
 import cats.syntax.apply._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.option._
-import cats.{ApplicativeError, Apply, Traverse}
+import cats.Apply
 import com.bot.cbr.UnitSpec
 import com.bot.cbr.algebra.{BotService, CurrencyService, MetalService}
 import com.bot.cbr.domain.CBRError.WrongUrl
@@ -36,35 +34,38 @@ class CBRbotSpec extends UnitSpec {
       |`/currency` - show all currencies on today
       |`/currency` all - show all currencies on today
       |`/currency` all 2018-11-06 - show all currencies on the 6th of November in 2018 year
+      |`/metal` gold - show gold on today
+      |`/metal` all - show all metals on today
+      |`/metal` 2018-11-06 2018-11-08 - show all metals on 6, 7 and 8 of November
       |""".stripMargin
 
   val defLocalDate = LocalDate.of(1970, 1, 1)
 
   "start or ?" should "invoke showHelp method" in {
     val update = BotUpdate(1L, BotMessage(12L, Chat(123L), "?".some).some)
-    runLaunch[IO, EitherNec[CBRError, ?]](update).unsafeRunSync() shouldBe ((123L, defLocalDate, expShowHelpMsg))
+    runLaunch[IO](update).unsafeRunSync() shouldBe ((123L, defLocalDate, expShowHelpMsg))
   }
 
   it should "invoke showHelp method also" in {
     val update = BotUpdate(1L, BotMessage(12L, Chat(123L), "/start".some).some)
-    runLaunch[IO, EitherNec[CBRError, ?]](update).unsafeRunSync() shouldBe ((123L, defLocalDate, expShowHelpMsg))
+    runLaunch[IO](update).unsafeRunSync() shouldBe ((123L, defLocalDate, expShowHelpMsg))
   }
 
   "Unknown command" should "invoke handleUnknown" in {
     val update = BotUpdate(1L, BotMessage(12L, Chat(123L), "unknown message".some).some)
-    runLaunch[IO, EitherNec[CBRError, ?]](update).unsafeRunSync() shouldBe ((-1L, defLocalDate, ""))
+    runLaunch[IO](update).unsafeRunSync() shouldBe ((-1L, defLocalDate, ""))
   }
 
   "launch" should "invoke showCurrency for usd on today" in {
     val update = BotUpdate(1L, BotMessage(12L, Chat(123L), "/currency usd".some).some)
 
-    runLaunch[IO, EitherNec[CBRError, ?]](update).unsafeRunSync() shouldBe ((123L, LocalDate.now, s"стоимость 1 USD на ${LocalDate.now} составляет 65"))
+    runLaunch[IO](update).unsafeRunSync() shouldBe ((123L, LocalDate.now, s"стоимость 1 USD на ${LocalDate.now} составляет 65"))
   }
 
   it should "invoke showCurrency for eur on today" in {
     val update = BotUpdate(1L, BotMessage(12L, Chat(123L), "/currency eur today".some).some)
 
-    runLaunch[IO, EitherNec[CBRError, ?]](update).unsafeRunSync() shouldBe ((123L, LocalDate.now, s"стоимость 1 EUR на ${LocalDate.now} составляет 75"))
+    runLaunch[IO](update).unsafeRunSync() shouldBe ((123L, LocalDate.now, s"стоимость 1 EUR на ${LocalDate.now} составляет 75"))
   }
 
   it should "invoke showCurrency for usd on yesterday" in {
@@ -72,7 +73,7 @@ class CBRbotSpec extends UnitSpec {
 
     val expDate = LocalDate.now.minusDays(1)
 
-    runLaunch[IO, EitherNec[CBRError, ?]](update).unsafeRunSync() shouldBe ((123L, expDate, s"стоимость 1 USD на $expDate составляет 65"))
+    runLaunch[IO](update).unsafeRunSync() shouldBe ((123L, expDate, s"стоимость 1 USD на $expDate составляет 65"))
   }
 
   it should "invoke showCurrency for usd on tomorrow" in {
@@ -80,7 +81,7 @@ class CBRbotSpec extends UnitSpec {
 
     val expDate = LocalDate.now.plusDays(1)
 
-    runLaunch[IO, EitherNec[CBRError, ?]](update).unsafeRunSync() shouldBe ((123L, expDate, s"стоимость 1 USD на $expDate составляет 65"))
+    runLaunch[IO](update).unsafeRunSync() shouldBe ((123L, expDate, s"стоимость 1 USD на $expDate составляет 65"))
   }
 
   it should "invoke showCurrency for usd on 2018-11-15" in {
@@ -88,7 +89,7 @@ class CBRbotSpec extends UnitSpec {
 
     val expLocalDate = LocalDate.of(2018, 11, 15)
 
-    runLaunch[IO, EitherNec[CBRError, ?]](update).unsafeRunSync() shouldBe ((123L, expLocalDate, s"стоимость 1 USD на $expLocalDate составляет 65"))
+    runLaunch[IO](update).unsafeRunSync() shouldBe ((123L, expLocalDate, s"стоимость 1 USD на $expLocalDate составляет 65"))
   }
 
   it should "invoke showCurrency for all" in {
@@ -99,7 +100,7 @@ class CBRbotSpec extends UnitSpec {
       s"стоимость 1 EUR на $expLocalDate составляет 75\n" +
       s"стоимость 10 CZK на $expLocalDate составляет 29.53\n"
 
-    runLaunch[IO, EitherNec[CBRError, ?]](update).unsafeRunSync() shouldBe ((123L, LocalDate.now, expMsg))
+    runLaunch[IO](update).unsafeRunSync() shouldBe ((123L, LocalDate.now, expMsg))
   }
 
   it should "invoke showCurrency for all on 2018-11-15" in {
@@ -110,16 +111,15 @@ class CBRbotSpec extends UnitSpec {
       s"стоимость 1 EUR на $expLocalDate составляет 75\n" +
       s"стоимость 10 CZK на $expLocalDate составляет 29.53\n"
 
-    runLaunch[IO, EitherNec[CBRError, ?]](update).unsafeRunSync() shouldBe ((123L, expLocalDate, expMsg))
+    runLaunch[IO](update).unsafeRunSync() shouldBe ((123L, expLocalDate, expMsg))
   }
 
   it should "invoke showCurrency for bad currency" in {
     val update = BotUpdate(1L, BotMessage(12L, Chat(123L), "/currency bad_currency".some).some)
-    runLaunch[IO, EitherNec[CBRError, ?]](update).unsafeRunSync() shouldBe ((-1L, LocalDate.now, ""))
+    runLaunch[IO](update).unsafeRunSync() shouldBe ((-1L, LocalDate.now, ""))
   }
 
-  def runLaunch[F[_]: Sync,
-                G[_]: Traverse: ApplicativeError[?[_], NonEmptyChain[CBRError]]](botUpdate: BotUpdate): F[(Long, LocalDate, String)] = for {
+  def runLaunch[F[_]: Sync](botUpdate: BotUpdate): F[(Long, LocalDate, String)] = for {
     chatRef <- Ref.of(-1L)
     ldRef <- Ref.of(defLocalDate)
     msgRef <- Ref.of("")
@@ -132,9 +132,9 @@ class CBRbotSpec extends UnitSpec {
     )
     cs = currencyService[F](ldRef, lcur)
     bs = botService[F](chatRef, msgRef, botUpdate.some)
-    ms = metalService[F, G]()
+    ms = metalService[F]()
 
-    cbtBot = new CBRbot[F, G](bs, cs, ms, logger)
+    cbtBot = new CBRbot[F](bs, cs, ms, logger)
 
     _ <- cbtBot.launch.compile.drain
 
@@ -162,7 +162,7 @@ class CBRbotSpec extends UnitSpec {
   def emptyCurrencyService[F[_]: Sync]: F[CurrencyService[F]] =
     Ref.of(LocalDate.now).map(currencyService(_, List(Left(WrongUrl("url")))))
 
-  def metalService[F[_], G[_]](): MetalService[F, G] = new MetalService[F, G] {
-    override def getMetals(start: LocalDate, end: LocalDate): Stream[F, G[Metal]] = ???
+  def metalService[F[_]](): MetalService[F] = new MetalService[F] {
+    override def getMetals(start: LocalDate, end: LocalDate): Stream[F, Either[CBRError, Metal]] = ???
   }
 }

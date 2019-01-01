@@ -12,6 +12,7 @@ object CBRError {
   final case class WrongDateFormat(override val msg: String) extends CBRError(msg)
   final case class WrongXMLFormat(override val msg: String) extends CBRError(msg)
   final case class WrongCommandInstruction(override val msg: String) extends CBRError(msg)
+  final case class WrongMetalData(override val msg: String) extends CBRError(msg)
 }
 
 

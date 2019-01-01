@@ -9,8 +9,9 @@ enablePlugins(JavaAppPackaging)
 enablePlugins(DockerPlugin)
 
 libraryDependencies ++= Seq(
-  "org.typelevel" %% "cats-core" % "1.4.0",
-  "org.typelevel" %% "cats-effect" % "1.0.0-1182d8c",
+  "org.typelevel" %% "cats-core" % "1.5.0",
+  "org.typelevel" %% "cats-effect" % "1.1.0",
+  "io.chrisdavenport" %% "cats-par" % "0.2.0",
   
   "co.fs2" %% "fs2-core" % "1.0.0",
   "co.fs2" %% "fs2-io" % "1.0.0",

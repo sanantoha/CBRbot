@@ -21,7 +21,7 @@ import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.http4s.Uri
 import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
-
+import cats.temp.par._
 import scala.xml.XML
 
 
@@ -67,7 +67,7 @@ class MetalServiceImpl3[F[_]: ConcurrentEffect, E](config: Config,
 
 object MetalServiceClient3 extends IOApp {
 
-  def runMetalService[F[_]: ConcurrentEffect](): F[Vector[Either[Throwable, Metal]]] =
+  def runMetalService[F[_]: ConcurrentEffect: Par](): F[Vector[Either[Throwable, Metal]]] =
     Executors.unbound[F].map(Linebacker.fromExecutorService[F]).use {
       implicit linebacker: Linebacker[F] =>
         val metals = for {
@@ -79,7 +79,7 @@ object MetalServiceClient3 extends IOApp {
             client,
             logger,
             parser)
-          eiMetal <- metalService.getMetals(LocalDate.now, LocalDate.now).attempt
+          eiMetal <- metalService.getMetals(LocalDate.now.minusDays(5), LocalDate.now).attempt
 
           _ <- Stream.eval(logger.info(eiMetal.fold(nec => "Error: " + nec.toString, _.show)))
         } yield eiMetal

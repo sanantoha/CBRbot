@@ -1,10 +1,6 @@
 package com.bot.cbr.service
 
 import java.time.LocalDate
-
-import cats.{ApplicativeError, Traverse}
-import cats.data.NonEmptyChain
-import cats.effect.Sync
 import cats.instances.string._
 import cats.syntax.eq._
 import com.bot.cbr.algebra.{BotService, CurrencyService, MetalService}
@@ -15,16 +11,12 @@ import io.chrisdavenport.log4cats.Logger
 import com.bot.cbr.codec.syntax._
 import com.bot.cbr.domain._
 import com.bot.cbr.domain.CurrencyRequest._
-import cats.syntax.traverse._
-import cats.syntax.applicative._
 
 
-class CBRbot[F[_],
-             G[_]](botService: BotService[F],
-                   currencyService: CurrencyService[F],
-                   metalService: MetalService[F, G],
-                   logger: Logger[F])
-                  (implicit val F: Sync[F], T: Traverse[G], AE: ApplicativeError[G, NonEmptyChain[CBRError]]) {
+class CBRbot[F[_]](botService: BotService[F],
+                         currencyService: CurrencyService[F],
+                         metalService: MetalService[F],
+                         logger: Logger[F]) {
 
   import CBRbot._
 
@@ -64,27 +56,35 @@ class CBRbot[F[_],
         s"`$currencyMsg` eur 06.11.2018 - show eur currency on the 6th of November in 2018 year\n" +
         s"`$currencyMsg` - show all currencies on today\n" +
         s"`$currencyMsg` all - show all currencies on today\n" +
-        s"`$currencyMsg` all 2018-11-06 - show all currencies on the 6th of November in 2018 year\n"
+        s"`$currencyMsg` all 2018-11-06 - show all currencies on the 6th of November in 2018 year\n" +
+        s"`$metalMsg` gold - show gold on today\n" +
+        s"`$metalMsg` all - show all metals on today\n" +
+        s"`$metalMsg` 2018-11-06 2018-11-08 - show all metals on 6, 7 and 8 of November\n"
     )
 
   def showMetal(chatId: Long, message: String): Stream[F, Unit] = {
     val metalRequest: Stream[F, MetalRequest] = decode[MetalRequest](message)
 
-    val metals = for {
+    val metals: Stream[F, Metal] = for {
       MetalRequest(name, startDate, endDate) <- metalRequest
       _ <- Stream.eval(logger.info(s"showMetal($chatId, $name, $startDate, $endDate)"))
-      gMetal <- metalService.getMetals(startDate, endDate)
-    } yield gMetal
+      eiMetal <- metalService.getMetals(startDate, endDate)
+
+      metal <- eiMetal match {
+        case Right(met) => Stream.emit(met).covary[F]
+        case Left(e) => Stream.eval(logger.error(e)(s"Error: ${e.getMessage}")).drain
+      }
+    } yield metal
 
 
     for {
       MetalRequest(name, _, _) <- metalRequest
       msg <- if (name.toLowerCase === "all") {
-        metals.fold("".pure[G])((acc, gm) => AE.map2(acc, T.map(gm)(prettyStringMetal))(_ + "\n" + _))
+        metals.fold("")((acc, met) => acc + prettyStringMetal(met) + "\n")
       } else {
-        metals.map(gm => T.find(gm)(_.metalType.toString.toLowerCase === name).map(prettyStringMetal).fold("".pure[G])(_.pure[G]))
+        metals.find(_.metalType.toString.toLowerCase === name).map(prettyStringMetal)
       }
-      _ <- Stream.eval(msg.traverse(x => if (x.isEmpty) F.unit else botService.sendMessage(chatId, x).compile.drain))
+      _ <- botService.sendMessage(chatId, msg)
     } yield ()
   }
 
