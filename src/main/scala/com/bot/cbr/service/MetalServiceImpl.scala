@@ -3,8 +3,6 @@ package com.bot.cbr.service
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-import cats.{ApplicativeError, Apply, Traverse}
-import cats.data.{NonEmptyChain, ValidatedNec}
 import cats.effect._
 import com.bot.cbr.algebra.MetalService
 import com.bot.cbr.config.Config

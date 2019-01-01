@@ -8,11 +8,10 @@ import cats.syntax.applicativeError._
 import cats.syntax.either._
 import cats.syntax.functor._
 import cats.syntax.show._
-import cats.ApplicativeError
 import com.bot.cbr.algebra.MetalService3
 import com.bot.cbr.config.Config
 import com.bot.cbr.domain.CBRError.{WrongUrl, WrongXMLFormat}
-import com.bot.cbr.domain.{CBRError, Metal}
+import com.bot.cbr.domain.Metal
 import fs2.Stream
 import io.chrisdavenport.linebacker.Linebacker
 import io.chrisdavenport.linebacker.contexts.Executors
