@@ -79,4 +79,9 @@ class DecoderSpec extends UnitSpec {
 
     "/metal platinum 10.12.2018 20.12.2018".decode[MetalRequest] shouldBe MetalRequest("platinum", ld, expDate).rightNec[CBRError]
   }
+
+  it should "parse wrong metal command" in {
+    "/metall all 11.11.2018 11.11.2018".decode[MetalRequest] shouldBe
+      WrongCommandInstruction("Could not parse metal l,all,11.11.2018,11.11.2018").leftNec[MetalRequest]
+  }
 }

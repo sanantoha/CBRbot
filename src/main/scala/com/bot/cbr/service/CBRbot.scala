@@ -80,9 +80,9 @@ class CBRbot[F[_]](botService: BotService[F],
     for {
       MetalRequest(name, _, _) <- metalRequest
       msg <- if (name.toLowerCase === "all") {
-        metals.fold("")((acc, met) => acc + prettyStringMetal(met) + "\n")
+        foldToMsgRes(metals)
       } else {
-        metals.find(_.metalType.toString.toLowerCase === name).map(prettyStringMetal)
+        foldToMsgRes(metals.filter(_.metalType.toString.toLowerCase === name))
       }
       _ <- botService.sendMessage(chatId, msg)
     } yield ()
@@ -118,6 +118,10 @@ class CBRbot[F[_]](botService: BotService[F],
       case Left(nec) =>
         Stream.emits(nec.toChain.toList).evalMap(e => logger.error(s"Error parsing command: $e")).drain
     }
+
+  private def foldToMsgRes(metals: Stream[F, Metal]) = {
+    metals.fold("")((acc, met) => acc + prettyStringMetal(met) + "\n")
+  }
 }
 
 object CBRbot {

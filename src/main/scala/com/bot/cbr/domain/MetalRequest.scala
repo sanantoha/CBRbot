@@ -19,6 +19,7 @@ object MetalRequest {
           val date = parseDate(start)
           MetalRequest(m, date, date).rightNec[CBRError]
         case Array(msg) => WrongCommandInstruction(s"Could not parse metal ${msg.mkString(",")}").leftNec[MetalRequest]
+        case arr => WrongCommandInstruction(s"Could not parse metal ${arr.mkString(",")}").leftNec[MetalRequest]
       }
     }
   }
