@@ -74,14 +74,18 @@ class BotServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Client[F], 
 
 
   override def sendMessage(chatId: Long, message: String): Stream[F, Unit] = for {
-    uri <- sendMessageUri(chatId, message)
+
+    msg <- if (message.trim.isEmpty) Stream.empty
+           else Stream.emit(message).covary[F]
+
+    uri <- sendMessageUri(chatId, msg)
     _ <- Stream.eval(logger.debug(s"sendMessage uri: ${uri.toString}"))
     res <- Stream.eval(client.expect[Unit](uri)).attempt
     _ <- res match {
       case Right(_) =>
-        Stream.eval(logger.info(s"Message was sent successfully to chat id: $chatId. Message=$message"))
+        Stream.eval(logger.info(s"Message was sent successfully to chat id: $chatId. Message=$msg"))
       case Left(e) =>
-        Stream.eval(logger.error(e)(s"Message was sent with error to chat id: $chatId. Message=$message"))
+        Stream.eval(logger.error(e)(s"Message was sent with error to chat id: $chatId. Message=$msg"))
     }
   } yield ()
 

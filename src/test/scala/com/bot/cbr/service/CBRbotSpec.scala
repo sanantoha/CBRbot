@@ -41,7 +41,19 @@ class CBRbotSpec extends UnitSpec {
       |""".stripMargin
 
   val defLocalDate = LocalDate.of(1970, 1, 1)
+
   val chatId = 123L
+
+  val lmet = List(
+    Metal(Gold, LocalDate.of(2018, 12, 1), BigDecimal(2610.66), BigDecimal(2610.66)).asRight[CBRError],
+    Metal(Silver, LocalDate.of(2018, 12, 1), BigDecimal(30.51), BigDecimal(30.51)).asRight[CBRError],
+    Metal(Platinum, LocalDate.of(2018, 12, 1), BigDecimal(1732.67), BigDecimal(1732.67)).asRight[CBRError],
+    Metal(Palladium, LocalDate.of(2018, 12, 1), BigDecimal(2549.81), BigDecimal(2549.81)).asRight[CBRError],
+    Metal(Gold, LocalDate.of(2018, 12, 2), BigDecimal(2611.66), BigDecimal(2612.66)).asRight[CBRError],
+    Metal(Silver, LocalDate.of(2018, 12, 2), BigDecimal(31.51), BigDecimal(32.51)).asRight[CBRError],
+    Metal(Platinum, LocalDate.of(2018, 12, 2), BigDecimal(1733.67), BigDecimal(1734.67)).asRight[CBRError],
+    Metal(Palladium, LocalDate.of(2018, 12, 2), BigDecimal(2550.81), BigDecimal(2551.81)).asRight[CBRError]
+  )
 
   "start or ?" should "invoke showHelp method" in {
     val update = BotUpdate(1L, BotMessage(12L, Chat(chatId), "?".some).some)
@@ -129,7 +141,17 @@ class CBRbotSpec extends UnitSpec {
     val expMsg = s"стоимость Gold на $expLocalDate покупка 2610.66, продажа 2610.66\n" +
                  s"стоимость Gold на $expLocalSecondDate покупка 2611.66, продажа 2612.66\n"
 
-    runLaunchForMetal[IO](update).unsafeRunSync() shouldBe ((chatId, expLocalDate, expLocalSecondDate, expMsg))
+    runLaunchForMetal[IO](update, lmet).unsafeRunSync() shouldBe ((chatId, expLocalDate, expLocalSecondDate, expMsg))
+  }
+
+  it should "invoke showMetal for gold on 2018-11-11" in {
+    val update = BotUpdate(1L, BotMessage(12L, Chat(chatId), "/metal gold 2018-11-11".some).some)
+
+    val expLocalDate = LocalDate.of(2018, 11, 11)
+
+    val expMsg = ""
+
+    runLaunchForMetal[IO](update, Nil).unsafeRunSync() shouldBe ((chatId, expLocalDate, expLocalDate, expMsg))
   }
 
   def runLaunchForCurrency[F[_]: Sync](botUpdate: BotUpdate): F[(Long, LocalDate, String)] = for {
@@ -157,7 +179,7 @@ class CBRbotSpec extends UnitSpec {
     msg <- msgRef.get
   } yield (chatId, ld, msg)
 
-  def runLaunchForMetal[F[_]: Sync](botUpdate: BotUpdate): F[(Long, LocalDate, LocalDate, String)] = for {
+  def runLaunchForMetal[F[_]: Sync](botUpdate: BotUpdate, lmet: List[Either[CBRError, Metal]]): F[(Long, LocalDate, LocalDate, String)] = for {
     chatRef <- Ref.of(-1L)
     startRef <- Ref.of(defLocalDate)
     endRef <- Ref.of(defLocalDate)
@@ -165,17 +187,6 @@ class CBRbotSpec extends UnitSpec {
     msgRef <- Ref.of("")
 
     logger = NoOpLogger.impl[F]
-
-    lmet = List(
-      Metal(Gold, LocalDate.of(2018, 12, 1), BigDecimal(2610.66), BigDecimal(2610.66)).asRight[CBRError],
-      Metal(Silver, LocalDate.of(2018, 12, 1), BigDecimal(30.51), BigDecimal(30.51)).asRight[CBRError],
-      Metal(Platinum, LocalDate.of(2018, 12, 1), BigDecimal(1732.67), BigDecimal(1732.67)).asRight[CBRError],
-      Metal(Palladium, LocalDate.of(2018, 12, 1), BigDecimal(2549.81), BigDecimal(2549.81)).asRight[CBRError],
-      Metal(Gold, LocalDate.of(2018, 12, 2), BigDecimal(2611.66), BigDecimal(2612.66)).asRight[CBRError],
-      Metal(Silver, LocalDate.of(2018, 12, 2), BigDecimal(31.51), BigDecimal(32.51)).asRight[CBRError],
-      Metal(Platinum, LocalDate.of(2018, 12, 2), BigDecimal(1733.67), BigDecimal(1734.67)).asRight[CBRError],
-      Metal(Palladium, LocalDate.of(2018, 12, 2), BigDecimal(2550.81), BigDecimal(2551.81)).asRight[CBRError]
-    )
 
     cs = currencyService[F](dummyRef, Nil)
     bs = botService[F](chatRef, msgRef, botUpdate.some)

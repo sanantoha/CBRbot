@@ -28,11 +28,16 @@ class BotServiceSpec extends UnitSpec {
   val url = "url"
   val chatId = 1L
   val msg = "msg"
+  val notSentMsg = "NOT_SENT_MSG"
 
   implicit def encoder[F[_]: Applicative]: EntityEncoder[F, BotResponse[List[BotUpdate]]] = jsonEncoderOf[F, BotResponse[List[BotUpdate]]]
 
   "BotService" should "send message to chat" in {
-    runSendMessage[IO].unsafeRunSync() shouldBe s"$url/sendMessage?chat_id=$chatId&parse_mode=Markdown&text=msg"
+    runSendMessage[IO](msg).unsafeRunSync() shouldBe s"$url/sendMessage?chat_id=$chatId&parse_mode=Markdown&text=msg"
+  }
+
+  it should "not try to send message if it empty" in {
+    runSendMessage[IO]("").unsafeRunSync() shouldBe notSentMsg
   }
 
   "BotService" should "receive messages from chat" in {
@@ -71,9 +76,9 @@ class BotServiceSpec extends UnitSpec {
     Client.fromHttpApp[F](httpApp)
   }
 
-  def runSendMessage[F[_] : ConcurrentEffect]: F[String] =
+  def runSendMessage[F[_] : ConcurrentEffect](msg: String): F[String] =
     for {
-      ref <- Ref[F].of("")
+      ref <- Ref[F].of(notSentMsg)
       client = mkClientForSendingMsg[F](ref)
       logger = NoOpLogger.impl[F]
       config = Config(url, "url2", "url")
