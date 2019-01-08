@@ -7,3 +7,6 @@ This bot shows currencies:
 /currency - show all currencies on today
 /currency all - show all currencies on today
 /currency all 2018-11-06 - show all currencies on the 6th of November in 2018 year
+/metal gold - show gold on today
+/metal all - show all metals on today
+/metal 2018-11-06 2018-11-08 - show all metals on 6, 7 and 8 of November

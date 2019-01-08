@@ -1,3 +1,8 @@
 curl -l https://api.telegram.org/bot<TOKEN>/getUpdates?offset=1&timeout=0.5&allowed_updates=%5B%22message%22%5D
 
 curl -l https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=-311412191&parse_mode=Markdown&text=text%20message
+
+
+curl -l https://www.moex.com/export/derivatives/currency-rate.aspx?language=ru&currency=USD/RUB&moment_start=2019-01-08&moment_end=2019-01-08
+
+curl -l https://www.moex.com/export/derivatives/currency-rate.aspx?language=ru&currency=EUR/RUB&moment_start=2019-01-08&moment_end=2019-01-08
