@@ -20,12 +20,10 @@ import io.circe.generic.auto._
 import org.http4s.circe._
 import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
-import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.{EntityDecoder, Uri}
 
 
-class BotServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Client[F], logger: Logger[F])
-  extends BotService[F] with Http4sClientDsl[F] {
+class BotServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Client[F], logger: Logger[F]) extends BotService[F] {
 
   private val botApiUri = Uri.fromString(config.urlBotapi).leftMap(p => WrongUrl(p.message))
 
@@ -146,8 +144,8 @@ object BotAPIServiceTest extends IOApp {
     }
 
     override def run(args: List[String]): IO[ExitCode] = {
-//      runSendMessage[IO] as ExitCode.Success
-      runPollUpdates[IO] as ExitCode.Success
+      runSendMessage[IO] as ExitCode.Success
+//      runPollUpdates[IO] as ExitCode.Success
     }
 
 }

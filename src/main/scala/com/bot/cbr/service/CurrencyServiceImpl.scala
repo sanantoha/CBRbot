@@ -21,15 +21,13 @@ import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
-import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.{Header, Headers, Method, Request, Uri}
 import cats.instances.string._
 
 import scala.xml.XML
 
 
-class CurrencyServiceImpl[F[_] : ConcurrentEffect](config: Config, client: Client[F], logger: Logger[F])
-  extends CurrencyService[F] with Http4sClientDsl[F] {
+class CurrencyServiceImpl[F[_] : ConcurrentEffect](config: Config, client: Client[F], logger: Logger[F]) extends CurrencyService[F] {
 
   def url: Either[CBRError, Uri] =
     Uri.fromString(config.urlCurrency).leftMap(p => WrongUrl(p.message))
