@@ -62,6 +62,7 @@ class CurrencyServiceImpl[F[_] : ConcurrentEffect](config: Config, client: Clien
 
   override def getCurrencies(date: LocalDate): Stream[F, Either[CBRError, Currency]] = for {
     req <- request(date)
+    _ <- Stream.eval(logger.info(s"invoke getCurrencies($date)"))
     s <- client.stream(req).flatMap(_.body.chunks.through(fs2.text.utf8DecodeC)).foldMonoid
 
     ei <- Stream.eval(Sync[F].delay(XML.loadString(s)).attempt)
@@ -80,7 +81,7 @@ class CurrencyServiceImpl[F[_] : ConcurrentEffect](config: Config, client: Clien
           val chCode = (node \\ "VchCode").text
           Currency(name, nom, curs, code, chCode)
         }).attempt.map(_.leftMap(e => WrongXMLFormat(e.getMessage): CBRError))
-        _ <- Stream.eval(logger.debug(cur.fold(_.show, c => s"Successfully read: ${c.show}")))
+        _ <- Stream.eval(logger.info(cur.fold(_.show, c => s"Successfully read: ${c.show}")))
       } yield cur
       case Left(e) => Stream.eval(WrongXMLFormat(e.getMessage).asLeft[Currency].pure[F])
     }

@@ -18,7 +18,7 @@ object MetalRequest {
         case Array(m, start) =>
           val date = parseDate(start)
           MetalRequest(m, date, date).rightNec[CBRError]
-        case Array(msg) => WrongCommandInstruction(s"Could not parse metal ${msg.mkString(",")}").leftNec[MetalRequest]
+        case Array(msg) if !msg.isEmpty => MetalRequest(msg, LocalDate.now, LocalDate.now).rightNec[CBRError]
         case arr => WrongCommandInstruction(s"Could not parse metal ${arr.mkString(",")}").leftNec[MetalRequest]
       }
     }

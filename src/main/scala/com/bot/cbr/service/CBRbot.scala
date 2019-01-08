@@ -67,7 +67,7 @@ class CBRbot[F[_]](botService: BotService[F],
 
     val metals: Stream[F, Metal] = for {
       MetalRequest(name, startDate, endDate) <- metalRequest
-      _ <- Stream.eval(logger.info(s"showMetal($chatId, $name, $startDate, $endDate)"))
+      _ <- Stream.eval(logger.info(s"invoke showMetal($chatId, $name, $startDate, $endDate)"))
       eiMetal <- metalService.getMetals(startDate, endDate)
 
       metal <- eiMetal match {
@@ -93,7 +93,7 @@ class CBRbot[F[_]](botService: BotService[F],
 
     val currencies: Stream[F, Currency] = for {
       CurrencyRequest(currency, date) <- currencyRequest
-      _ <- Stream.eval(logger.info(s"showCurrency($chatId, $currency, $date) invokes"))
+      _ <- Stream.eval(logger.info(s"invoke showCurrency($chatId, $currency, $date)"))
       eiCur <- currencyService.getCurrencies(date)
       cur <- eiCur match {
         case Right(cur) => Stream.emit(cur).covary[F]

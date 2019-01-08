@@ -75,6 +75,8 @@ class BotServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Client[F], 
 
   override def sendMessage(chatId: Long, message: String): Stream[F, Unit] = for {
 
+    _ <- Stream.eval(logger.info(s"invoke sendMessage($chatId, $message)"))
+
     msg <- if (message.trim.isEmpty) Stream.empty
            else Stream.emit(message).covary[F]
 

@@ -32,9 +32,9 @@ class MetalServiceImpl[F[_]: Sync](config: Config,
   val dateFormatMetal = DateTimeFormatter.ofPattern("dd.MM.yyyy")
 
   def url: F[Uri] =
-    Uri.fromString(config.urlMetal).leftMap(p => WrongUrl(p.message): Throwable).raiseOrPure
+    Uri.fromString(config.urlMetal).leftMap(p => WrongUrl(p.message): Throwable).raiseOrPure[F]
 
-  override def getMetals(start: LocalDate, end: LocalDate): fs2.Stream[F, Either[CBRError, Metal]] = for {
+  override def getMetals(start: LocalDate, end: LocalDate): Stream[F, Either[CBRError, Metal]] = for {
     baseUri <- Stream.eval(url)
     uri = baseUri.withQueryParam("date_req1", start.format(dateFormat)).withQueryParam("date_req2", end.format(dateFormat))
     _ <- Stream.eval(logger.info(s"getMetals uri: $uri"))
