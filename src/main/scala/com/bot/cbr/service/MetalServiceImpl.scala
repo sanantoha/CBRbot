@@ -67,7 +67,7 @@ object MetalServiceClient0 extends IOApp {
           client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
           logger <- Stream.eval(Slf4jLogger.create)
           parser = new MetalParserImpl[F, Throwable](identity)
-          metalService = new MetalServiceImpl[F](Config("url", "url", "http://www.cbr.ru/scripts/xml_metall.asp"), client, parser, logger)
+          metalService = new MetalServiceImpl[F](Config("url", "url", "url", "http://www.cbr.ru/scripts/xml_metall.asp"), client, parser, logger)
           eiMetal <- metalService.getMetals(LocalDate.now.minusDays(4), LocalDate.now.minusDays(2))
 
 

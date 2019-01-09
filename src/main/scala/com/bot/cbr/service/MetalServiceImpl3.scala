@@ -74,7 +74,7 @@ object MetalServiceClient3 extends IOApp {
           logger <- Stream.eval(Slf4jLogger.create)
           parser = new MetalParserImpl[F, Throwable](identity)
           metalService = new MetalServiceImpl3[F, Throwable](
-            Config("url", "url", "http://www.cbr.ru/scripts/xml_metall.asp"),
+            Config("url", "url", "url", "http://www.cbr.ru/scripts/xml_metall.asp"),
             client,
             logger,
             parser)

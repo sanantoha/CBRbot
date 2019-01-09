@@ -95,7 +95,7 @@ object CurrencyClient extends IOApp {
         val currencies = for {
           client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
           logger <- Stream.eval(Slf4jLogger.create)
-          config = Config("token", "https://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx", "url")
+          config = Config("token", "https://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx", "url", "url")
           service = new CurrencyServiceImpl[F](config, client, logger)
           res <- service.getCurrencies(LocalDate.now())
         } yield res

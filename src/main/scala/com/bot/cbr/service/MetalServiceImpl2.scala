@@ -91,7 +91,7 @@ object MetalServiceClient2 extends IOApp {
           logger <- Stream.eval(Slf4jLogger.create)
           parser = new MetalParserImpl[G, E](mkError)
           metalService = new MetalServiceImpl2[F, G, E](
-            Config("url", "url", "http://www.cbr.ru/scripts/xml_metall.asp"),
+            Config("url", "url", "url", "http://www.cbr.ru/scripts/xml_metall.asp"),
             client,
             logger,
             parser)
