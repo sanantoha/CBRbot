@@ -4,6 +4,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 import cats.ApplicativeError
+import cats.data.EitherNec
 import cats.effect._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
@@ -23,11 +24,15 @@ import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.{Header, Headers, Method, Request, Uri}
 import cats.instances.string._
+import cats.syntax.parallel._
+import cats.instances.parallel._
 
-import scala.xml.XML
+import scala.xml.{Node, XML}
 
 
 class CurrencyServiceImpl[F[_] : ConcurrentEffect](config: Config, client: Client[F], logger: Logger[F]) extends CurrencyService[F] {
+
+  type E[A] = EitherNec[CBRError, A]
 
   def url: Either[CBRError, Uri] =
     Uri.fromString(config.urlCurrency).leftMap(p => WrongUrl(p.message))
@@ -58,38 +63,46 @@ class CurrencyServiceImpl[F[_] : ConcurrentEffect](config: Config, client: Clien
       }
     ))
 
-  override def getCurrencies(date: LocalDate): Stream[F, Either[CBRError, Currency]] = for {
+  override def getCurrencies(date: LocalDate): Stream[F, EitherNec[CBRError, Currency]] = for {
     req <- request(date)
     _ <- Stream.eval(logger.info(s"invoke getCurrencies($date)"))
     s <- client.stream(req).flatMap(_.body.chunks.through(fs2.text.utf8DecodeC)).foldMonoid
 
     ei <- Stream.eval(Sync[F].delay(XML.loadString(s)).attempt)
-    _ <- Stream.eval(logger.debug(ei.fold(e => s"Error load XML: ${e.getMessage}", el => s"XML loaded: ${el.toString}")))
+    _ <- Stream.eval(logger.info(ei.fold(e => s"Error load XML: ${e.getMessage}", el => s"XML loaded: ${el.toString}")))
 
     cur <- ei match {
       case Right(xml) => for {
-        vcd <- Stream.eval(Sync[F].delay((xml \\ "ValuteCursOnDate").toList))
-        _ <- Stream.eval(logger.debug(vcd.mkString(",")))
-        node <- Stream.emits(vcd).covary[F]
-        cur <- Stream.eval(Sync[F].delay {
-          val name = (node \\ "Vname").text.trim
-          val nom = BigDecimal((node \\ "Vnom").text)
-          val curs = BigDecimal((node \\ "Vcurs").text)
-          val code = (node \\ "Vcode").text.toInt
-          val chCode = (node \\ "VchCode").text
-          Currency(name, nom, curs, code, chCode)
-        }).attempt.map(_.leftMap(e => WrongXMLFormat(e.getMessage): CBRError))
-        _ <- Stream.eval(logger.info(cur.fold(_.show, c => s"Successfully read: ${c.show}")))
+        vcd <- Stream.eval(Sync[F].delay(parseField((xml \\ "ValuteCursOnDate").toList)))
+        _ <- Stream.eval(logger.info(vcd.fold(_.show, lst => lst.mkString(","))))
+        node <- vcd.traverse(Stream.emits(_))
+        cur <- node match {
+          case Right(n) => Stream.eval(Sync[F].delay(parseCurrency(n)))
+          case Left(nec) => Stream.eval(logger.error(s"Errors: ${nec.show}")).drain ++
+              Stream.emit(nec.asLeft[Currency]).covary[F]
+        }
+
+        _ <- Stream.eval(logger.info(cur.fold(_.show, c => s"parse: ${c.show}")))
+
       } yield cur
-      case Left(e) => Stream.eval(WrongXMLFormat(e.getMessage).asLeft[Currency].pure[F])
+      case Left(e) => Stream.eval(WrongXMLFormat(e.getMessage).leftNec[Currency].pure[F])
     }
   } yield cur
+
+  def parseCurrency(node: Node): E[Currency] = {
+    val name: E[String] = parseField((node \ "Vname").text.trim)
+    val nom: E[BigDecimal] = parseField(BigDecimal((node \ "Vnom").text))
+    val curs: E[BigDecimal] = parseField(BigDecimal((node \ "Vcurs").text))
+    val code: E[Int] = parseField((node \ "Vcode").text.toInt)
+    val chCode: E[String] = parseField((node \ "VchCode").text)
+    (name, nom, curs, code, chCode).parMapN(Currency.apply)
+  }
 
 }
 
 object CurrencyClient extends IOApp {
 
-  def runCurrencyService[F[_] : ConcurrentEffect]: F[Vector[Either[CBRError, Currency]]] =
+  def runCurrencyService[F[_] : ConcurrentEffect]: F[Vector[EitherNec[CBRError, Currency]]] =
     Executors.unbound[F].map(Linebacker.fromExecutorService[F]).use {
       implicit linebacker: Linebacker[F] =>
         val currencies = for {

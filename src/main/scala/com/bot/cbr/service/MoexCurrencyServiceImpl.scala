@@ -3,7 +3,7 @@ package com.bot.cbr.service
 import java.time.{LocalDate, LocalDateTime}
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 
-import cats.data.{EitherNec, NonEmptyChain}
+import cats.data.EitherNec
 import cats.effect._
 import com.bot.cbr.algebra.MoexCurrencyService
 import com.bot.cbr.config.Config
@@ -62,22 +62,20 @@ class MoexCurrencyServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Cl
     val eiLst: E[List[Node]] = parseField((xml \ "rates" \ "rate").toList)
     val eiEt: E[String] = parseField(xml \@ "exchange-type")
     (eiEt, eiLst).parMapN {
-      case (et, lst) => lst.parTraverse(node => createMoexCurrency(et, node))
-    }.flatMap(identity).traverse(Stream.emits)
+      case (et, lst) => lst.parTraverse(createMoexCurrency(et))
+    }.flatMap(identity).traverse(Stream.emits(_))
   }
 
-  def createMoexCurrency(exchangeType: String, node: Node): E[MoexCurrency] = {
-    val cur: E[BigDecimal] = parseField(node \@ "value").map(BigDecimal(_))
-    val dateTime: E[LocalDateTime] = parseField(node \@ "moment").map(LocalDateTime.parse(_, dateTimeFormatter))
+  def createMoexCurrency(exchangeType: String)(node: Node): E[MoexCurrency] = {
+    val cur: E[BigDecimal] = parseField(BigDecimal(node \@ "value"))
+    val dateTime: E[LocalDateTime] = parseField {
+      val dateTime = node \@ "moment"
+      LocalDateTime.parse(dateTime, dateTimeFormatter)
+    }
     (dateTime, cur).parMapN {
       case (dt, c) => MoexCurrency(exchangeType, dt, c)
     }
   }
-
-  def parseField[A](f: => A): EitherNec[CBRError, A] =
-    Either.catchNonFatal {
-      f
-    }.leftMap(e => NonEmptyChain.one(WrongXMLFormat(e.getMessage)))
 }
 
 

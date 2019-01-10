@@ -97,7 +97,7 @@ class CBRbot[F[_]](botService: BotService[F],
       eiCur <- currencyService.getCurrencies(date)
       cur <- eiCur match {
         case Right(cur) => Stream.emit(cur).covary[F]
-        case Left(e) => Stream.eval(logger.error(e)(s"Error: ${e.getMessage}")).drain
+        case Left(nec) => Stream.eval(logger.error(s"Errors: $nec")).drain
       }
     } yield cur
 
