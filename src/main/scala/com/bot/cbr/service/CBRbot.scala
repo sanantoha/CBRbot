@@ -72,7 +72,7 @@ class CBRbot[F[_]](botService: BotService[F],
 
       metal <- eiMetal match {
         case Right(met) => Stream.emit(met).covary[F]
-        case Left(e) => Stream.eval(logger.error(e)(s"Error: ${e.getMessage}")).drain
+        case Left(nec) => Stream.eval(logger.error(s"Errors: ${nec.toChain.toList.mkString("\n")}")).drain
       }
     } yield metal
 
@@ -97,7 +97,7 @@ class CBRbot[F[_]](botService: BotService[F],
       eiCur <- currencyService.getCurrencies(date)
       cur <- eiCur match {
         case Right(cur) => Stream.emit(cur).covary[F]
-        case Left(nec) => Stream.eval(logger.error(s"Errors: $nec")).drain
+        case Left(nec) => Stream.eval(logger.error(s"Errors: ${nec.toChain.toList.mkString("\n")}")).drain
       }
     } yield cur
 
