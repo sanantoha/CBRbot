@@ -3,6 +3,7 @@ package com.bot.cbr.service
 import java.time.LocalDate
 import java.util.concurrent.Executors
 
+import cats.data.EitherNec
 import cats.effect.{ConcurrentEffect, ContextShift, IO}
 import cats.syntax.either._
 import cats.syntax.flatMap._
@@ -36,7 +37,7 @@ class MetalServiceSpec extends UnitSpec {
     runTest[IO]().unsafeRunSync() shouldBe expMetals
   }
 
-  def runMetalService[F[_]: ConcurrentEffect: Par](response: String): F[Vector[Either[CBRError, Metal]]] = {
+  def runMetalService[F[_]: ConcurrentEffect: Par](response: String): F[Vector[EitherNec[CBRError, Metal]]] = {
     val metals = for {
       client <- Stream.emit(mkClient[F](response)).covary[F]
       logger <- Stream.emit(NoOpLogger.impl[F]).covary[F]
@@ -47,7 +48,7 @@ class MetalServiceSpec extends UnitSpec {
     metals.compile.toVector
   }
 
-  def runTest[F[_]: ConcurrentEffect: ContextShift: Par](): F[Vector[Either[CBRError, Metal]]] = {
+  def runTest[F[_]: ConcurrentEffect: ContextShift: Par](): F[Vector[EitherNec[CBRError, Metal]]] = {
     E.unbound[F].map(Linebacker.fromExecutorService[F]).use {
       implicit linebacker: Linebacker[F] =>
         for {
