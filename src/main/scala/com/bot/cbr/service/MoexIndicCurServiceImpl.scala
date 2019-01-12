@@ -5,7 +5,7 @@ import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 
 import cats.data.EitherNec
 import cats.effect._
-import com.bot.cbr.algebra.MoexCurrencyService
+import com.bot.cbr.algebra.MoexIndicCurService
 import com.bot.cbr.config.Config
 import com.bot.cbr.domain.CBRError.{WrongUrl, WrongXMLFormat}
 import com.bot.cbr.domain.{CBRError, MoexCurrency}
@@ -26,7 +26,7 @@ import cats.instances.either._
 
 import scala.xml.{Elem, Node, XML}
 
-class MoexCurrencyServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Client[F], logger: Logger[F]) extends MoexCurrencyService[F] {
+class MoexIndicCurServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Client[F], logger: Logger[F]) extends MoexIndicCurService[F] {
 
   type E[A] = EitherNec[CBRError, A]
 
@@ -88,8 +88,8 @@ object MoexCurrencyServiceClient extends IOApp {
           client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
           logger <- Stream.eval(Slf4jLogger.create)
           config = Config("token", "url", "https://www.moex.com/export/derivatives/currency-rate.aspx", "url")
-          service = new MoexCurrencyServiceImpl[F](config, client, logger)
-          cur <- service.getCurrencies("EUR/RUB", LocalDate.now)
+          service = new MoexIndicCurServiceImpl[F](config, client, logger)
+          cur <- service.getCurrencies("EUR/RUB", LocalDate.now.minusDays(1))
           _ <- Stream.eval(logger.info(cur.show))
         } yield cur
 
