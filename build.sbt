@@ -28,6 +28,10 @@ libraryDependencies ++= Seq(
   "ch.qos.logback" % "logback-classic" % "1.2.3",
   "com.github.pureconfig" %% "pureconfig-cats-effect" % "0.9.2",
 
+  "com.github.cb372" %% "scalacache-core" % "0.27.0",
+  "com.github.cb372" %% "scalacache-caffeine" % "0.27.0",
+  "com.github.cb372" %% "scalacache-cats-effect" % "0.27.0",
+
   "org.scalatest" %% "scalatest" % "3.0.5" % "test",
   "io.chrisdavenport" %% "log4cats-noop" % "0.2.0" % "test"
 )

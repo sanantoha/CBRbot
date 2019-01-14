@@ -11,9 +11,13 @@ import io.chrisdavenport.log4cats.Logger
 import com.bot.cbr.codec.syntax._
 import com.bot.cbr.domain._
 import com.bot.cbr.domain.CurrencyRequest._
+import scalacache._
+import com.bot.cbr.cache.CurrencyCache._
+import cats.syntax.option._
+import scalacache.CatsEffect.modes._
 
 
-class CBRbot[F[_]](botService: BotService[F],
+class CBRbot[F[_]: cats.effect.Async](botService: BotService[F],
                          currencyService: CurrencyService[F],
                          metalService: MetalService[F],
                          logger: Logger[F]) {
@@ -94,7 +98,8 @@ class CBRbot[F[_]](botService: BotService[F],
     val currencies: Stream[F, Currency] = for {
       CurrencyRequest(currency, date) <- currencyRequest
       _ <- Stream.eval(logger.info(s"invoke showCurrency($chatId, $currency, $date)"))
-      eiCur <- currencyService.getCurrencies(date)
+      vecEiCur <- Stream.eval(cachingF(date)(none)(currencyService.getCurrencies(date).compile.toVector))
+      eiCur <- Stream.emits(vecEiCur).covary[F]
       cur <- eiCur match {
         case Right(cur) => Stream.emit(cur).covary[F]
         case Left(nec) => Stream.eval(logger.error(s"Errors: ${nec.toChain.toList.mkString("\n")}")).drain

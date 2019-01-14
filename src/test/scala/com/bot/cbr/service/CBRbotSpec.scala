@@ -4,13 +4,14 @@ import java.time.LocalDate
 import java.util.concurrent.Executors
 
 import cats.effect.concurrent.Ref
-import cats.effect.{ContextShift, IO, Sync}
+import cats.effect.{Async, ContextShift, IO, Sync}
 import cats.syntax.apply._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.option._
 import cats.Apply
+import cats.data.EitherNec
 import com.bot.cbr.UnitSpec
 import com.bot.cbr.algebra.{BotService, CurrencyService, MetalService}
 import com.bot.cbr.domain.CBRError.WrongUrl
@@ -18,11 +19,13 @@ import com.bot.cbr.domain.MetalType.{Gold, Palladium, Platinum, Silver}
 import com.bot.cbr.domain._
 import fs2.Stream
 import io.chrisdavenport.log4cats.noop.NoOpLogger
-
+import org.scalatest.BeforeAndAfterEach
+import com.bot.cbr.cache.CurrencyCache._
 import scala.concurrent.ExecutionContext
+import scalacache.CatsEffect.modes._
 
 
-class CBRbotSpec extends UnitSpec {
+class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
 
   val testEc = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
   implicit val cs: ContextShift[IO] = IO.contextShift(testEc)
@@ -45,15 +48,19 @@ class CBRbotSpec extends UnitSpec {
   val chatId = 123L
 
   val lmet = List(
-    Metal(Gold, LocalDate.of(2018, 12, 1), BigDecimal(2610.66), BigDecimal(2610.66)).asRight[CBRError],
-    Metal(Silver, LocalDate.of(2018, 12, 1), BigDecimal(30.51), BigDecimal(30.51)).asRight[CBRError],
-    Metal(Platinum, LocalDate.of(2018, 12, 1), BigDecimal(1732.67), BigDecimal(1732.67)).asRight[CBRError],
-    Metal(Palladium, LocalDate.of(2018, 12, 1), BigDecimal(2549.81), BigDecimal(2549.81)).asRight[CBRError],
-    Metal(Gold, LocalDate.of(2018, 12, 2), BigDecimal(2611.66), BigDecimal(2612.66)).asRight[CBRError],
-    Metal(Silver, LocalDate.of(2018, 12, 2), BigDecimal(31.51), BigDecimal(32.51)).asRight[CBRError],
-    Metal(Platinum, LocalDate.of(2018, 12, 2), BigDecimal(1733.67), BigDecimal(1734.67)).asRight[CBRError],
-    Metal(Palladium, LocalDate.of(2018, 12, 2), BigDecimal(2550.81), BigDecimal(2551.81)).asRight[CBRError]
+    Metal(Gold, LocalDate.of(2018, 12, 1), BigDecimal(2610.66), BigDecimal(2610.66)).rightNec[CBRError],
+    Metal(Silver, LocalDate.of(2018, 12, 1), BigDecimal(30.51), BigDecimal(30.51)).rightNec[CBRError],
+    Metal(Platinum, LocalDate.of(2018, 12, 1), BigDecimal(1732.67), BigDecimal(1732.67)).rightNec[CBRError],
+    Metal(Palladium, LocalDate.of(2018, 12, 1), BigDecimal(2549.81), BigDecimal(2549.81)).rightNec[CBRError],
+    Metal(Gold, LocalDate.of(2018, 12, 2), BigDecimal(2611.66), BigDecimal(2612.66)).rightNec[CBRError],
+    Metal(Silver, LocalDate.of(2018, 12, 2), BigDecimal(31.51), BigDecimal(32.51)).rightNec[CBRError],
+    Metal(Platinum, LocalDate.of(2018, 12, 2), BigDecimal(1733.67), BigDecimal(1734.67)).rightNec[CBRError],
+    Metal(Palladium, LocalDate.of(2018, 12, 2), BigDecimal(2550.81), BigDecimal(2551.81)).rightNec[CBRError]
   )
+
+  override protected def afterEach(): Unit = {
+    currencyCache.removeAll[IO]().void.unsafeRunSync()
+  }
 
   "start or ?" should "invoke showHelp method" in {
     val update = BotUpdate(1L, BotMessage(12L, Chat(chatId), "?".some).some)
@@ -154,7 +161,7 @@ class CBRbotSpec extends UnitSpec {
     runLaunchForMetal[IO](update, Nil).unsafeRunSync() shouldBe ((chatId, expLocalDate, expLocalDate, expMsg))
   }
 
-  def runLaunchForCurrency[F[_]: Sync](botUpdate: BotUpdate): F[(Long, LocalDate, String)] = for {
+  def runLaunchForCurrency[F[_]: Async](botUpdate: BotUpdate): F[(Long, LocalDate, String)] = for {
     chatRef <- Ref.of(-1L)
     ldRef <- Ref.of(defLocalDate)
     dummyRef <- Ref.of(defLocalDate)
@@ -162,9 +169,9 @@ class CBRbotSpec extends UnitSpec {
 
     logger = NoOpLogger.impl[F]
     lcur = List(
-      Currency("USD", 1, 65, 840, "USD").asRight[CBRError],
-      Currency("EUR", 1, 75, 978, "EUR").asRight[CBRError],
-      Currency("CZK", 10, 29.53, 203, "CZK").asRight[CBRError]
+      Currency("USD", 1, 65, 840, "USD").rightNec[CBRError],
+      Currency("EUR", 1, 75, 978, "EUR").rightNec[CBRError],
+      Currency("CZK", 10, 29.53, 203, "CZK").rightNec[CBRError]
     )
     cs = currencyService[F](ldRef, lcur)
     bs = botService[F](chatRef, msgRef, botUpdate.some)
@@ -179,7 +186,7 @@ class CBRbotSpec extends UnitSpec {
     msg <- msgRef.get
   } yield (chatId, ld, msg)
 
-  def runLaunchForMetal[F[_]: Sync](botUpdate: BotUpdate, lmet: List[Either[CBRError, Metal]]): F[(Long, LocalDate, LocalDate, String)] = for {
+  def runLaunchForMetal[F[_]: Async](botUpdate: BotUpdate, lmet: List[EitherNec[CBRError, Metal]]): F[(Long, LocalDate, LocalDate, String)] = for {
     chatRef <- Ref.of(-1L)
     startRef <- Ref.of(defLocalDate)
     endRef <- Ref.of(defLocalDate)
@@ -213,16 +220,16 @@ class CBRbotSpec extends UnitSpec {
       botUpdate.map(bu => Stream.emit(bu).covary[F]).getOrElse(Stream.empty)
   }
 
-  def currencyService[F[_]](ldRef: Ref[F, LocalDate], res: List[Either[CBRError, Currency]]): CurrencyService[F] = new CurrencyService[F] {
-    override def getCurrencies(date: LocalDate): Stream[F, Either[CBRError, Currency]] =
+  def currencyService[F[_]](ldRef: Ref[F, LocalDate], res: List[EitherNec[CBRError, Currency]]): CurrencyService[F] = new CurrencyService[F] {
+    override def getCurrencies(date: LocalDate): Stream[F, EitherNec[CBRError, Currency]] =
       Stream.eval(ldRef.set(date)).drain ++ Stream.emits(res).covary[F]
   }
 
   def emptyCurrencyService[F[_]: Sync]: F[CurrencyService[F]] =
-    Ref.of(LocalDate.now).map(currencyService(_, List(Left(WrongUrl("url")))))
+    Ref.of(LocalDate.now).map(currencyService(_, List(WrongUrl("url").leftNec[Currency])))
 
-  def metalService[F[_]](startRef: Ref[F, LocalDate], endRef: Ref[F, LocalDate], res: List[Either[CBRError, Metal]]): MetalService[F] = new MetalService[F] {
-    override def getMetals(start: LocalDate, end: LocalDate): Stream[F, Either[CBRError, Metal]] =
+  def metalService[F[_]](startRef: Ref[F, LocalDate], endRef: Ref[F, LocalDate], res: List[EitherNec[CBRError, Metal]]): MetalService[F] = new MetalService[F] {
+    override def getMetals(start: LocalDate, end: LocalDate): Stream[F, EitherNec[CBRError, Metal]] =
       Stream.eval(startRef.set(start)).drain ++ Stream.eval(endRef.set(end)).drain ++ Stream.emits(res).covary[F]
   }
 }
