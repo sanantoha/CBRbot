@@ -14,6 +14,7 @@ import scalacache.CatsEffect.modes._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.option._
+import cats.syntax.applicative._
 import scala.concurrent.ExecutionContext
 
 class CurrencyCacheSpec extends UnitSpec {
@@ -39,7 +40,7 @@ class CurrencyCacheSpec extends UnitSpec {
     res <- get(LocalDate.now)
   } yield res.getOrElse(Vector.empty)
 
-  def runTestCaching[F[_]: cats.effect.Async](currencies: Vector[EitherNec[CBRError, Currency]]): F[Vector[EitherNec[CBRError, Currency]]] = for {
-    res <- caching(LocalDate.now)(none)(currencies)
-  } yield res
+  def runTestCaching[F[_]: cats.effect.Async](currencies: Vector[EitherNec[CBRError, Currency]]): F[Vector[EitherNec[CBRError, Currency]]] =
+    cachingF(LocalDate.now)(none)(currencies.pure[F])
+
 }

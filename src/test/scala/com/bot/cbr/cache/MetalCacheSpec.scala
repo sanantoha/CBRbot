@@ -9,6 +9,8 @@ import com.bot.cbr.UnitSpec
 import com.bot.cbr.domain.{CBRError, Metal}
 import com.bot.cbr.domain.MetalType.{Gold, Silver}
 import cats.syntax.either._
+import cats.syntax.option._
+import cats.syntax.applicative._
 import scalacache._
 import scalacache.CatsEffect.modes._
 import scala.concurrent.ExecutionContext
@@ -30,8 +32,16 @@ class MetalCacheSpec extends UnitSpec {
     runTestPutAndGet[IO](expMetals).unsafeRunSync() shouldBe expMetals
   }
 
-  def runTestPutAndGet[F[_]: cats.effect.Async](vec: Vector[EitherNec[CBRError, Metal]]): F[Vector[EitherNec[CBRError, Metal]]] = for {
-    _ <- put(LocalDate.now, LocalDate.now.plusDays(1))(vec)
+  it should "save and retrieve for one action" in {
+    runTestCaching[IO](expMetals).unsafeRunSync() shouldBe expMetals
+  }
+
+  def runTestPutAndGet[F[_]: cats.effect.Async](metals: Vector[EitherNec[CBRError, Metal]]): F[Vector[EitherNec[CBRError, Metal]]] = for {
+    _ <- put(LocalDate.now, LocalDate.now.plusDays(1))(metals)
     res <- get(LocalDate.now, LocalDate.now.plusDays(1))
   } yield res.getOrElse(Vector.empty)
+
+  def runTestCaching[F[_]: cats.effect.Async](metals: Vector[EitherNec[CBRError, Metal]]): F[Vector[EitherNec[CBRError, Metal]]] =
+    cachingF(LocalDate.now, LocalDate.now.plusDays(1))(none)(metals.pure[F])
+
 }
