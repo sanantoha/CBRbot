@@ -13,6 +13,7 @@ import com.bot.cbr.domain._
 import com.bot.cbr.domain.CurrencyRequest._
 import scalacache._
 import com.bot.cbr.cache.CurrencyCache._
+import com.bot.cbr.cache.MetalCache._
 import cats.syntax.option._
 import scalacache.CatsEffect.modes._
 
@@ -72,8 +73,8 @@ class CBRbot[F[_]: cats.effect.Async](botService: BotService[F],
     val metals: Stream[F, Metal] = for {
       MetalRequest(name, startDate, endDate) <- metalRequest
       _ <- Stream.eval(logger.info(s"invoke showMetal($chatId, $name, $startDate, $endDate)"))
-      eiMetal <- metalService.getMetals(startDate, endDate)
-
+      vecEiMetal <- Stream.eval(cachingF(startDate, endDate)(none)(metalService.getMetals(startDate, endDate).compile.toVector))
+      eiMetal <- Stream.emits(vecEiMetal).covary[F]
       metal <- eiMetal match {
         case Right(met) => Stream.emit(met).covary[F]
         case Left(nec) => Stream.eval(logger.error(s"Errors: ${nec.toChain.toList.mkString("\n")}")).drain

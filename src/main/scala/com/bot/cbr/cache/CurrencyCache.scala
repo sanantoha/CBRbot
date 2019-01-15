@@ -12,10 +12,10 @@ object CurrencyCache {
 
   import CacheConfig._
 
-  val underlyingCaffeineCache: CCache[String, Entry[Vector[EitherNec[CBRError, Currency]]]] = Caffeine.newBuilder()
+  val underlyingCurrencyCache: CCache[String, Entry[Vector[EitherNec[CBRError, Currency]]]] = Caffeine.newBuilder()
     .expireAfterWrite(1, TimeUnit.HOURS)
     .maximumSize(1000L)
     .build[String, Entry[Vector[EitherNec[CBRError, Currency]]]]()
 
-  implicit val currencyCache: Cache[Vector[EitherNec[CBRError, Currency]]] = CaffeineCache.apply(underlyingCaffeineCache)
+  implicit val currencyCache: Cache[Vector[EitherNec[CBRError, Currency]]] = CaffeineCache.apply(underlyingCurrencyCache)
 }
