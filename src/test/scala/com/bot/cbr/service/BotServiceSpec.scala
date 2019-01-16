@@ -6,7 +6,7 @@ import cats.Applicative
 import cats.effect.concurrent.Ref
 import cats.effect.{ConcurrentEffect, ContextShift, IO, Sync}
 import com.bot.cbr.UnitSpec
-import com.bot.cbr.config.Config
+import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import io.chrisdavenport.log4cats.noop.NoOpLogger
 import org.http4s.client.Client
 import org.http4s.dsl.io.Ok
@@ -51,7 +51,7 @@ class BotServiceSpec extends UnitSpec {
     ref <- Ref[F].of("")
     client = mkClientForPollUpdate(ref)
     logger = NoOpLogger.impl[F]
-    config = Config(url, "url2", "url","url")
+    config = Config(url, "url2", "url","url", MoexCurrencyUrlConfig("url", "url"))
 
     service = new BotServiceImpl[F](config, client, logger)
     botUpdate <- service.pollUpdates(0).take(1).compile.lastOrError
@@ -81,7 +81,7 @@ class BotServiceSpec extends UnitSpec {
       ref <- Ref[F].of(notSentMsg)
       client = mkClientForSendingMsg[F](ref)
       logger = NoOpLogger.impl[F]
-      config = Config(url, "url2", "url", "url")
+      config = Config(url, "url2", "url", "url", MoexCurrencyUrlConfig("url", "url"))
       service = new BotServiceImpl[F](config, client, logger)
 
       _ <- service.sendMessage(chatId, msg).compile.drain

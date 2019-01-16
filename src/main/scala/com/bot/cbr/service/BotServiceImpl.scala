@@ -8,7 +8,7 @@ import cats.syntax.either._
 import cats.syntax.foldable._
 import cats.syntax.functor._
 import com.bot.cbr.algebra.BotService
-import com.bot.cbr.config.Config
+import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.CBRError.WrongUrl
 import com.bot.cbr.domain.{BotResponse, BotUpdate}
 import fs2.Stream
@@ -115,7 +115,7 @@ object BotAPIServiceTest extends IOApp {
           client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
           logger <- Stream.eval(Slf4jLogger.create)
 
-          config = Config("https://api.telegram.org/bot<Token>", "url", "url", "url")
+          config = Config("https://api.telegram.org/bot<Token>", "url", "url", "url", MoexCurrencyUrlConfig("url", "url"))
 
           service = new BotServiceImpl[F](config, client, logger)
 
@@ -133,7 +133,7 @@ object BotAPIServiceTest extends IOApp {
           client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
           logger <- Stream.eval(Slf4jLogger.create)
 
-          config = Config("https://api.telegram.org/bot<Token>", "url", "url", "url")
+          config = Config("https://api.telegram.org/bot<Token>", "url", "url", "url", MoexCurrencyUrlConfig("url", "url"))
           service = new BotServiceImpl[F](config, client, logger)
 
           botUpdate <- service.pollUpdates(1)

@@ -6,7 +6,7 @@ import java.time.format.DateTimeFormatter
 import cats.data.{EitherNec, NonEmptyChain}
 import cats.effect._
 import com.bot.cbr.algebra.MetalService
-import com.bot.cbr.config.Config
+import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.CBRError.{WrongMetalData, WrongUrl, WrongXMLFormat}
 import com.bot.cbr.domain.{CBRError, Metal}
 import io.chrisdavenport.log4cats.Logger
@@ -23,6 +23,7 @@ import cats.syntax.functor._
 import cats.temp.par._
 import com.bot.cbr.domain.CBRError._
 import cats.syntax.show._
+
 import scala.xml.XML
 
 class MetalServiceImpl[F[_]: Sync](config: Config,
@@ -75,7 +76,7 @@ object MetalServiceClient0 extends IOApp {
           client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
           logger <- Stream.eval(Slf4jLogger.create)
           parser = new MetalParserImpl[F, Throwable](identity)
-          metalService = new MetalServiceImpl[F](Config("url", "url", "url", "http://www.cbr.ru/scripts/xml_metall.asp"), client, parser, logger)
+          metalService = new MetalServiceImpl[F](Config("url", "url", "url", "http://www.cbr.ru/scripts/xml_metall.asp", MoexCurrencyUrlConfig("url", "url")), client, parser, logger)
           eiMetal <- metalService.getMetals(LocalDate.now.minusDays(4), LocalDate.now.minusDays(1))
 
 

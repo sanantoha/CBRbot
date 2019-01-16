@@ -12,7 +12,7 @@ import cats.syntax.either._
 import cats.syntax.functor._
 import cats.syntax.show._
 import com.bot.cbr.algebra.CurrencyService
-import com.bot.cbr.config.Config
+import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.CBRError.{WrongUrl, WrongXMLFormat}
 import com.bot.cbr.domain.{CBRError, Currency}
 import fs2.Stream
@@ -108,7 +108,7 @@ object CurrencyClient extends IOApp {
         val currencies = for {
           client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
           logger <- Stream.eval(Slf4jLogger.create)
-          config = Config("token", "https://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx", "url", "url")
+          config = Config("token", "https://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx", "url", "url", MoexCurrencyUrlConfig("url", "url"))
           service = new CurrencyServiceImpl[F](config, client, logger)
           res <- service.getCurrencies(LocalDate.now())
         } yield res

@@ -28,6 +28,8 @@ class ConfigSpec extends UnitSpec {
       urlBotapi = "https://URL_BOT/botTOKEN_VALUE",
       urlCurrency = "URL_CURRENCY",
       urlMoexCurrency = "URL_MOEX_CURRENCY",
-      urlMetal = "URL_METAL")
+      urlMetal = "URL_METAL",
+      moexCurUrlConfig = MoexCurrencyUrlConfig(urlUsd = "URL_MOEX_USD", urlEur = "URL_MOEX_EUR")
+    )
   }
 }

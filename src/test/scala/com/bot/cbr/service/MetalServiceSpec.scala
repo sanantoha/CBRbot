@@ -9,7 +9,7 @@ import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.temp.par._
-import com.bot.cbr.config.Config
+import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.MetalType.{Gold, Palladium, Platinum, Silver}
 import com.bot.cbr.domain.{CBRError, Metal}
 import com.bot.cbr.utils._
@@ -42,7 +42,7 @@ class MetalServiceSpec extends UnitSpec {
       client <- Stream.emit(mkClient[F](response)).covary[F]
       logger <- Stream.emit(NoOpLogger.impl[F]).covary[F]
       parser = new MetalParserImpl[F, Throwable](identity)
-      metalService = new MetalServiceImpl[F](Config("url", "url", "url", "url"), client, parser, logger)
+      metalService = new MetalServiceImpl[F](Config("url", "url", "url", "url", MoexCurrencyUrlConfig("url", "url")), client, parser, logger)
       res <- metalService.getMetals(LocalDate.now, LocalDate.now)
     } yield res
     metals.compile.toVector

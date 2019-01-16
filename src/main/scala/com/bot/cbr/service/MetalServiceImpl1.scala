@@ -9,7 +9,7 @@ import cats.effect._
 import cats.syntax.either._
 import cats.syntax.functor._
 import com.bot.cbr.algebra.MetalService1
-import com.bot.cbr.config.Config
+import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.CBRError.{WrongUrl, WrongXMLFormat}
 import com.bot.cbr.domain.{CBRError, Metal}
 import fs2.Stream
@@ -28,7 +28,6 @@ import cats.syntax.foldable._
 import cats.temp.par._
 import cats.instances.either._
 import cats.instances.parallel._
-
 
 import scala.xml.XML
 
@@ -87,7 +86,11 @@ object MetalService1Client extends IOApp {
           client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
           logger <- Stream.eval(Slf4jLogger.create)
           parser = new MetalParserImpl[G, NonEmptyChain[CBRError]](NonEmptyChain.one)
-          metalService = new MetalService1Impl[F, G](Config("url", "url", "url", "http://www.cbr.ru/scripts/xml_metall.asp"), client, parser, logger)
+          metalService = new MetalService1Impl[F, G](
+            Config("url", "url", "url", "http://www.cbr.ru/scripts/xml_metall.asp", MoexCurrencyUrlConfig("url", "url")),
+            client,
+            parser,
+            logger)
           eiMetal <- metalService.getMetals(LocalDate.now.minusDays(3), LocalDate.now)
           _ <- Stream.eval(eiMetal.traverse(m => logger.info(m.show)))
         } yield eiMetal

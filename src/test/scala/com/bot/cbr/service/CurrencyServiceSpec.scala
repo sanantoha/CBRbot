@@ -7,7 +7,7 @@ import cats.data.EitherNec
 import cats.effect.{ConcurrentEffect, ContextShift, IO}
 import com.bot.cbr.{ReadData, UnitSpec}
 import com.bot.cbr.utils._
-import com.bot.cbr.config.Config
+import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.{CBRError, Currency}
 import fs2.Stream
 import io.chrisdavenport.linebacker.Linebacker
@@ -82,7 +82,7 @@ class CurrencyServiceSpec extends UnitSpec {
     val currencies = for {
       client <- Stream.emit(mkClient(response)).covary[F]
       logger <- Stream.emit(NoOpLogger.impl[F]).covary[F]
-      config = Config("token", "url", "url", "url")
+      config = Config("token", "url", "url", "url", MoexCurrencyUrlConfig("url", "url"))
       service = new CurrencyServiceImpl[F](config, client, logger)
       res <- service.getCurrencies(LocalDate.now())
     } yield res

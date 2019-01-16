@@ -32,6 +32,9 @@ libraryDependencies ++= Seq(
   "com.github.cb372" %% "scalacache-caffeine" % "0.27.0",
   "com.github.cb372" %% "scalacache-cats-effect" % "0.27.0",
 
+
+  "net.ruippeixotog" %% "scala-scraper" % "2.1.0",
+
   "org.scalatest" %% "scalatest" % "3.0.5" % "test",
   "io.chrisdavenport" %% "log4cats-noop" % "0.2.0" % "test"
 )

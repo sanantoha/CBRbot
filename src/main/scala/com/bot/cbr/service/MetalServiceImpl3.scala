@@ -9,7 +9,7 @@ import cats.syntax.either._
 import cats.syntax.functor._
 import cats.syntax.show._
 import com.bot.cbr.algebra.MetalService3
-import com.bot.cbr.config.Config
+import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.CBRError.{WrongUrl, WrongXMLFormat}
 import com.bot.cbr.domain.Metal
 import fs2.Stream
@@ -21,6 +21,7 @@ import org.http4s.Uri
 import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
 import cats.temp.par._
+
 import scala.xml.XML
 
 
@@ -74,7 +75,7 @@ object MetalServiceClient3 extends IOApp {
           logger <- Stream.eval(Slf4jLogger.create)
           parser = new MetalParserImpl[F, Throwable](identity)
           metalService = new MetalServiceImpl3[F, Throwable](
-            Config("url", "url", "url", "http://www.cbr.ru/scripts/xml_metall.asp"),
+            Config("url", "url", "url", "http://www.cbr.ru/scripts/xml_metall.asp", MoexCurrencyUrlConfig("url", "url")),
             client,
             logger,
             parser)

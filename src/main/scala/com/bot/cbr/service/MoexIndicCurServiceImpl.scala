@@ -6,9 +6,9 @@ import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import cats.data.EitherNec
 import cats.effect._
 import com.bot.cbr.algebra.MoexIndicCurService
-import com.bot.cbr.config.Config
+import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.CBRError.{WrongUrl, WrongXMLFormat}
-import com.bot.cbr.domain.{CBRError, MoexCurrency}
+import com.bot.cbr.domain.{CBRError, MoexIndicCurrency}
 import io.chrisdavenport.log4cats.Logger
 import org.http4s.client.Client
 import fs2.Stream
@@ -38,7 +38,7 @@ class MoexIndicCurServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Cl
   def url: F[Uri] =
     Uri.fromString(config.urlMoexCurrency).leftMap(p => WrongUrl(p.message): Throwable).raiseOrPure[F]
 
-  override def getCurrencies(exchangeType: String, date: LocalDate): Stream[F, EitherNec[CBRError, MoexCurrency]] = for {
+  override def getCurrencies(exchangeType: String, date: LocalDate): Stream[F, EitherNec[CBRError, MoexIndicCurrency]] = for {
     baseUri <- Stream.eval(url)
 
     uri = baseUri.withQueryParam("language", "ru")
@@ -54,11 +54,11 @@ class MoexIndicCurServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Cl
       case Right(xml) => parseCurrency(xml)
       case Left(e) =>
         Stream.eval(logger.error(e)(s"Error: ${e.getMessage}")).drain ++
-          Stream.emit((WrongXMLFormat(e.getMessage): CBRError).leftNec[MoexCurrency]).covary[F]
+          Stream.emit((WrongXMLFormat(e.getMessage): CBRError).leftNec[MoexIndicCurrency]).covary[F]
     }
   } yield cur
 
-  def parseCurrency(xml: Elem): Stream[F, EitherNec[CBRError, MoexCurrency]] = {
+  def parseCurrency(xml: Elem): Stream[F, EitherNec[CBRError, MoexIndicCurrency]] = {
     val eiLst: E[List[Node]] = parseField((xml \ "rates" \ "rate").toList)
     val eiEt: E[String] = parseField(xml \@ "exchange-type")
     (eiEt, eiLst).parMapN {
@@ -66,14 +66,14 @@ class MoexIndicCurServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Cl
     }.flatMap(identity).traverse(Stream.emits(_))
   }
 
-  def createMoexCurrency(exchangeType: String)(node: Node): E[MoexCurrency] = {
+  def createMoexCurrency(exchangeType: String)(node: Node): E[MoexIndicCurrency] = {
     val cur: E[BigDecimal] = parseField(BigDecimal(node \@ "value"))
     val dateTime: E[LocalDateTime] = parseField {
       val dateTime = node \@ "moment"
       LocalDateTime.parse(dateTime, dateTimeFormatter)
     }
     (dateTime, cur).parMapN {
-      case (dt, c) => MoexCurrency(exchangeType, dt, c)
+      case (dt, c) => MoexIndicCurrency(exchangeType, dt, c)
     }
   }
 }
@@ -81,13 +81,13 @@ class MoexIndicCurServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Cl
 
 object MoexCurrencyServiceClient extends IOApp {
 
-  def runCurrencyService[F[_]: ConcurrentEffect]: F[Vector[EitherNec[CBRError, MoexCurrency]]] = {
+  def runCurrencyService[F[_]: ConcurrentEffect]: F[Vector[EitherNec[CBRError, MoexIndicCurrency]]] = {
     Executors.unbound[F].map(Linebacker.fromExecutorService[F]).use {
       implicit linebacker: Linebacker[F] =>
         val currencies = for {
           client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
           logger <- Stream.eval(Slf4jLogger.create)
-          config = Config("token", "url", "https://www.moex.com/export/derivatives/currency-rate.aspx", "url")
+          config = Config("token", "url", "https://www.moex.com/export/derivatives/currency-rate.aspx", "url", MoexCurrencyUrlConfig("url", "url"))
           service = new MoexIndicCurServiceImpl[F](config, client, logger)
           cur <- service.getCurrencies("EUR/RUB", LocalDate.now.minusDays(1))
           _ <- Stream.eval(logger.info(cur.show))

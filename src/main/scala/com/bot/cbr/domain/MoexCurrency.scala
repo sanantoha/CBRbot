@@ -1,12 +1,20 @@
 package com.bot.cbr.domain
 
-import java.time.LocalDateTime
+import java.time.LocalDate
 
 import cats.Show
 
-final case class MoexCurrency(exchangeType: String, dateTime: LocalDateTime, curs: BigDecimal)
+sealed trait MoexCurrencyType extends Product with Serializable
+
+object MoexCurrencyType {
+
+  final case object USD extends MoexCurrencyType
+  final case object EUR extends MoexCurrencyType
+}
+
+final case class MoexCurrency(curType: MoexCurrencyType, date: LocalDate, value: BigDecimal, change: BigDecimal)
 
 object MoexCurrency {
 
-  implicit val currencyShow: Show[MoexCurrency] = Show.fromToString[MoexCurrency]
+  implicit val moexCurrencyShow: Show[MoexCurrency] = Show.fromToString[MoexCurrency]
 }

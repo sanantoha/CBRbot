@@ -8,7 +8,7 @@ import com.bot.cbr.domain.CBRError.WrongXMLFormat
 import cats.data.{EitherNec, NonEmptyChain}
 import cats.effect._
 import com.bot.cbr.algebra.MetalService2
-import com.bot.cbr.config.Config
+import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.CBRError.WrongUrl
 import com.bot.cbr.domain.{CBRError, Metal}
 import fs2.Stream
@@ -91,7 +91,7 @@ object MetalServiceClient2 extends IOApp {
           logger <- Stream.eval(Slf4jLogger.create)
           parser = new MetalParserImpl[G, E](mkError)
           metalService = new MetalServiceImpl2[F, G, E](
-            Config("url", "url", "url", "http://www.cbr.ru/scripts/xml_metall.asp"),
+            Config("url", "url", "url", "http://www.cbr.ru/scripts/xml_metall.asp", MoexCurrencyUrlConfig("url", "url")),
             client,
             logger,
             parser)
