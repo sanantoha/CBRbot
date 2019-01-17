@@ -2,7 +2,6 @@ package com.bot.cbr.service
 
 import java.text.DecimalFormat
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 import com.bot.cbr.algebra.MetalParser
@@ -15,14 +14,12 @@ import com.bot.cbr.domain.MetalType.lookUpMetalType
 import cats.syntax.either._
 import cats.temp.par._
 import cats.syntax.parallel._
-
+import com.bot.cbr.domain.date._
 import scala.xml.{Node, XML}
 
 class MetalParserImpl[F[_]: ApplicativeError[?[_], E]: Par, E](mkError: CBRError => E) extends MetalParser[F] {
 
   Locale.setDefault(new Locale("ru", "RU"))
-
-  val dateFormatMetal = DateTimeFormatter.ofPattern("dd.MM.yyyy")
 
   def parse(record: Node): F[Metal] = {
     (parseMetalType(record),
@@ -38,7 +35,7 @@ class MetalParserImpl[F[_]: ApplicativeError[?[_], E]: Par, E](mkError: CBRError
 
   def parseDate(record: Node): F[LocalDate] =
     Either.catchNonFatal {
-      LocalDate.parse((record \ "@Date").text, dateFormatMetal)
+      LocalDate.parse((record \ "@Date").text, dateFormat)
     }.leftMap(e => mkError(WrongXMLFormat(e.getMessage): CBRError)).raiseOrPure[F]
 
   def parseBigDecimal(record: Node, name: String): F[BigDecimal] =

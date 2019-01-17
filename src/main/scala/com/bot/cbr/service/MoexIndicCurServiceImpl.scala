@@ -23,17 +23,13 @@ import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.http4s.client.blaze.BlazeClientBuilder
 import cats.instances.list._
 import cats.instances.either._
+import com.bot.cbr.domain.date._
 
 import scala.xml.{Elem, Node, XML}
 
 class MoexIndicCurServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Client[F], logger: Logger[F]) extends MoexIndicCurService[F] {
 
   type E[A] = EitherNec[CBRError, A]
-
-  val dateTimeFormatter: DateTimeFormatter = new DateTimeFormatterBuilder()
-    .parseCaseInsensitive.append(DateTimeFormatter.ISO_LOCAL_DATE)
-    .appendLiteral(' ').append(DateTimeFormatter.ISO_LOCAL_TIME)
-    .toFormatter
 
   def url: F[Uri] =
     Uri.fromString(config.urlMoexCurrency).leftMap(p => WrongUrl(p.message): Throwable).raiseOrPure[F]
@@ -70,7 +66,7 @@ class MoexIndicCurServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Cl
     val cur: E[BigDecimal] = parseField(BigDecimal(node \@ "value"))
     val dateTime: E[LocalDateTime] = parseField {
       val dateTime = node \@ "moment"
-      LocalDateTime.parse(dateTime, dateTimeFormatter)
+      LocalDateTime.parse(dateTime, dateTimeWhiteSpaceDelimiter)
     }
     (dateTime, cur).parMapN {
       case (dt, c) => MoexIndicCurrency(exchangeType, dt, c)
@@ -79,7 +75,7 @@ class MoexIndicCurServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Cl
 }
 
 
-object MoexCurrencyServiceClient extends IOApp {
+object MoexIndicCurServiceClient extends IOApp {
 
   def runCurrencyService[F[_]: ConcurrentEffect]: F[Vector[EitherNec[CBRError, MoexIndicCurrency]]] = {
     Executors.unbound[F].map(Linebacker.fromExecutorService[F]).use {

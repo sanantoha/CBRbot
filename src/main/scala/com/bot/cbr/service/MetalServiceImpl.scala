@@ -23,7 +23,7 @@ import cats.syntax.functor._
 import cats.temp.par._
 import com.bot.cbr.domain.CBRError._
 import cats.syntax.show._
-
+import com.bot.cbr.domain.date._
 import scala.xml.XML
 
 class MetalServiceImpl[F[_]: Sync](config: Config,
@@ -31,15 +31,12 @@ class MetalServiceImpl[F[_]: Sync](config: Config,
                                    parser: MetalParserImpl[F, Throwable],
                                    logger: Logger[F]) extends MetalService[F] {
 
-  val dateFormat = DateTimeFormatter.ofPattern("dd/MM/YYYY")
-  val dateFormatMetal = DateTimeFormatter.ofPattern("dd.MM.yyyy")
-
   def url: F[Uri] =
     Uri.fromString(config.urlMetal).leftMap(p => WrongUrl(p.message): Throwable).raiseOrPure[F]
 
   override def getMetals(start: LocalDate, end: LocalDate): Stream[F, EitherNec[CBRError, Metal]] = for {
     baseUri <- Stream.eval(url)
-    uri = baseUri.withQueryParam("date_req1", start.format(dateFormat)).withQueryParam("date_req2", end.format(dateFormat))
+    uri = baseUri.withQueryParam("date_req1", start.format(dateFormatSlash)).withQueryParam("date_req2", end.format(dateFormatSlash))
     _ <- Stream.eval(logger.info(s"getMetals uri: $uri"))
     s <- Stream.eval(client.expect[String](uri))
     _ <- Stream.eval(logger.info(s"getMetals returns string: $s"))

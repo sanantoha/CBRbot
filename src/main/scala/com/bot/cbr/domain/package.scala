@@ -1,10 +1,12 @@
 package com.bot.cbr
 
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
+
 import cats.syntax.either._
 import cats.syntax.semigroupk._
 import cats.instances.option._
+import domain.date._
 
 
 package object domain {
@@ -15,10 +17,18 @@ package object domain {
 
   val metalMsg = "/metal"
 
-  val dateFormatISO = DateTimeFormatter.ISO_DATE
-  val dateFormat = DateTimeFormatter.ofPattern("dd.MM.yyyy")
-  val dateFormatSlash = DateTimeFormatter.ofPattern("dd/MM/yyy")
-  val dateFormatHyphen = DateTimeFormatter.ofPattern("dd-MM-yyyy")
+  object date {
+    val dateFormatISO = DateTimeFormatter.ISO_DATE
+    val dateFormat = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+    val dateFormatSlash = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    val dateFormatHyphen = DateTimeFormatter.ofPattern("dd-MM-yyyy")
+    val dateFormatShort = DateTimeFormatter.ofPattern("dd.MM.yy")
+
+    val dateTimeWhiteSpaceDelimiter: DateTimeFormatter = new DateTimeFormatterBuilder()
+      .parseCaseInsensitive.append(DateTimeFormatter.ISO_LOCAL_DATE)
+      .appendLiteral(' ').append(DateTimeFormatter.ISO_LOCAL_TIME)
+      .toFormatter
+  }
 
   def parseDate(str: String): LocalDate = str match {
     case "today" => LocalDate.now
