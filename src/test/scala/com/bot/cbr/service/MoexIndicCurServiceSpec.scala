@@ -36,14 +36,14 @@ class MoexIndicCurServiceSpec extends UnitSpec {
   }
 
   def runMoexIndicCurService[F[_]: ConcurrentEffect](response: String): F[Vector[EitherNec[CBRError, MoexIndicCurrency]]] = {
-    val metals = for {
+    val currencies = for {
       client <- Stream.emit(mkClient[F](response)).covary[F]
       logger <- Stream.emit(NoOpLogger.impl[F]).covary[F]
       config = Config("url", "url", "url", "url", MoexCurrencyUrlConfig("url", "url"))
       moexIdicCurService = new MoexIndicCurServiceImpl[F](config, client, logger)
       res <- moexIdicCurService.getCurrencies("EUR/RUB", LocalDate.now)
     } yield res
-    metals.compile.toVector
+    currencies.compile.toVector
   }
 
   def runTest[F[_]: ConcurrentEffect: ContextShift](): F[Vector[EitherNec[CBRError, MoexIndicCurrency]]] = {
