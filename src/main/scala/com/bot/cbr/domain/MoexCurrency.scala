@@ -10,6 +10,10 @@ object MoexCurrencyType {
 
   final case object USD extends MoexCurrencyType
   final case object EUR extends MoexCurrencyType
+
+  def lookupMoexCurrency(s: String): MoexCurrencyType =
+    if (s.toUpperCase.equals(EUR.toString)) EUR
+    else USD
 }
 
 final case class MoexCurrency(curType: MoexCurrencyType, date: LocalDate, value: BigDecimal, change: BigDecimal)

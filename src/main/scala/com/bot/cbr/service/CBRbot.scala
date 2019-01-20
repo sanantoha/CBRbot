@@ -1,9 +1,11 @@
 package com.bot.cbr.service
 
 import java.time.LocalDate
+
+import cats.data.EitherNec
 import cats.instances.string._
 import cats.syntax.eq._
-import com.bot.cbr.algebra.{BotService, CurrencyService, MetalService}
+import com.bot.cbr.algebra.{BotService, CurrencyService, MetalService, MoexCurrencyService}
 import com.bot.cbr.codec.Decoder
 import com.bot.cbr.domain.{Currency, CurrencyRequest}
 import fs2.Stream
@@ -21,6 +23,7 @@ import scalacache.CatsEffect.modes._
 class CBRbot[F[_]: cats.effect.Async](botService: BotService[F],
                          currencyService: CurrencyService[F],
                          metalService: MetalService[F],
+                         moexCurrencyService: MoexCurrencyService[F],
                          logger: Logger[F]) {
 
   import CBRbot._
@@ -72,9 +75,24 @@ class CBRbot[F[_]: cats.effect.Async](botService: BotService[F],
         s"`$moexCurMsg` eur 12.01.2019 - show euro currency on moex exchange on 12.01.2019\n"
     )
 
-  def showMoexCurrency(charId: Long, message: String): Stream[F, Unit] = {
+  def showMoexCurrency(chatId: Long, message: String): Stream[F, Unit] = {
     val moexCurrencyRequest: Stream[F, MoexCurrencyRequest] = decode[MoexCurrencyRequest](message)
-    ???
+
+    val moexCurrencies = for {
+      MoexCurrencyRequest(name, date) <- moexCurrencyRequest
+      _ <- Stream.eval(logger.info(s"invoke showMoexCurrency($chatId, $name, $date)"))
+      eiMoexCur <- moexCurrencyService.getCurrencies(MoexCurrencyType.lookupMoexCurrency(name))
+      moexCur <- unpack(eiMoexCur)
+    } yield moexCur
+
+    for {
+      MoexCurrencyRequest(_, date) <- moexCurrencyRequest
+      moexCurrency <- moexCurrencies
+      msg <- if (moexCurrency.date == date) Stream.emit(prettyStringMoexCurrency(moexCurrency)).covary[F]
+             else Stream.empty
+
+      _ <- botService.sendMessage(chatId, msg)
+    } yield ()
   }
 
   def showMetal(chatId: Long, message: String): Stream[F, Unit] = {
@@ -85,10 +103,7 @@ class CBRbot[F[_]: cats.effect.Async](botService: BotService[F],
       _ <- Stream.eval(logger.info(s"invoke showMetal($chatId, $name, $startDate, $endDate)"))
       vecEiMetal <- Stream.eval(cachingF(startDate, endDate)(none)(metalService.getMetals(startDate, endDate).compile.toVector))
       eiMetal <- Stream.emits(vecEiMetal).covary[F]
-      metal <- eiMetal match {
-        case Right(met) => Stream.emit(met).covary[F]
-        case Left(nec) => Stream.eval(logger.error(s"Errors: ${nec.toChain.toList.mkString("\n")}")).drain
-      }
+      metal <- unpack(eiMetal)
     } yield metal
 
 
@@ -111,10 +126,7 @@ class CBRbot[F[_]: cats.effect.Async](botService: BotService[F],
       _ <- Stream.eval(logger.info(s"invoke showCurrency($chatId, $currency, $date)"))
       vecEiCur <- Stream.eval(cachingF(date)(none)(currencyService.getCurrencies(date).compile.toVector))
       eiCur <- Stream.emits(vecEiCur).covary[F]
-      cur <- eiCur match {
-        case Right(cur) => Stream.emit(cur).covary[F]
-        case Left(nec) => Stream.eval(logger.error(s"Errors: ${nec.toChain.toList.mkString("\n")}")).drain
-      }
+      cur <- unpack(eiCur)
     } yield cur
 
     for {
@@ -126,6 +138,11 @@ class CBRbot[F[_]: cats.effect.Async](botService: BotService[F],
       }
       _ <- botService.sendMessage(chatId, msg)
     } yield ()
+  }
+
+  def unpack[A](either: EitherNec[CBRError, A]): Stream[F, A] = either match {
+    case Right(cur) => Stream.emit(cur).covary[F]
+    case Left(nec) => Stream.eval(logger.error(s"Errors: ${nec.toChain.toList.mkString("\n")}")).drain
   }
 
   def decode[A: Decoder](message: String): Stream[F, A] =
@@ -148,4 +165,8 @@ object CBRbot {
 
   def prettyStringCurrency(cur: Currency, date: LocalDate): String =
     s"price ${cur.nom} ${cur.name} on $date is ${cur.curs}"
+
+  def prettyStringMoexCurrency(moexCurrency: MoexCurrency): String = {
+    s"price ${moexCurrency.curType} on ${moexCurrency.date} is ${moexCurrency.value}, change is ${moexCurrency.change}"
+  }
 }

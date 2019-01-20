@@ -10,10 +10,10 @@ import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.option._
-import cats.Apply
+import cats.{Applicative, Apply}
 import cats.data.EitherNec
 import com.bot.cbr.UnitSpec
-import com.bot.cbr.algebra.{BotService, CurrencyService, MetalService}
+import com.bot.cbr.algebra.{BotService, CurrencyService, MetalService, MoexCurrencyService}
 import com.bot.cbr.domain.CBRError.WrongUrl
 import com.bot.cbr.domain.MetalType.{Gold, Palladium, Platinum, Silver}
 import com.bot.cbr.domain._
@@ -21,6 +21,7 @@ import fs2.Stream
 import io.chrisdavenport.log4cats.noop.NoOpLogger
 import org.scalatest.BeforeAndAfterEach
 import com.bot.cbr.cache.CurrencyCache._
+
 import scala.concurrent.ExecutionContext
 import scalacache.CatsEffect.modes._
 
@@ -180,8 +181,8 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
     cs = currencyService[F](ldRef, lcur)
     bs = botService[F](chatRef, msgRef, botUpdate.some)
     ms = metalService[F](dummyRef, dummyRef, Nil)
-
-    cbtBot = new CBRbot[F](bs, cs, ms, logger)
+    mc = moexCurrencyService[F]()
+    cbtBot = new CBRbot[F](bs, cs, ms, mc, logger)
 
     _ <- cbtBot.launch.compile.drain
 
@@ -202,8 +203,8 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
     cs = currencyService[F](dummyRef, Nil)
     bs = botService[F](chatRef, msgRef, botUpdate.some)
     ms = metalService[F](startRef, endRef, lmet)
-
-    cbtBot = new CBRbot[F](bs, cs, ms, logger)
+    mc = moexCurrencyService[F]()
+    cbtBot = new CBRbot[F](bs, cs, ms, mc, logger)
 
     _ <- cbtBot.launch.compile.drain
 
@@ -229,11 +230,12 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
       Stream.eval(ldRef.set(date)).drain ++ Stream.emits(res).covary[F]
   }
 
-  def emptyCurrencyService[F[_]: Sync]: F[CurrencyService[F]] =
-    Ref.of(LD.now).map(currencyService(_, List(WrongUrl("url").leftNec[Currency])))
-
   def metalService[F[_]](startRef: Ref[F, LD], endRef: Ref[F, LD], res: List[EitherNec[CBRError, Metal]]): MetalService[F] = new MetalService[F] {
     override def getMetals(start: LD, end: LD): Stream[F, EitherNec[CBRError, Metal]] =
       Stream.eval(startRef.set(start)).drain ++ Stream.eval(endRef.set(end)).drain ++ Stream.emits(res).covary[F]
+  }
+
+  def moexCurrencyService[F[_]: Applicative](): MoexCurrencyService[F] = new MoexCurrencyService[F] {
+    override def getCurrencies(moexCurType: MoexCurrencyType): Stream[F, EitherNec[CBRError, MoexCurrency]] = ???
   }
 }

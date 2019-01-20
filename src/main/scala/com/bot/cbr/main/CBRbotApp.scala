@@ -24,7 +24,8 @@ object CBRbotApp extends IOApp {
           curService = new CurrencyServiceImpl[F](config, client, logger)
           metalParser = new MetalParserImpl[F, Throwable](identity)
           metalService = new MetalServiceImpl[F](config, client, metalParser, logger)
-          bot = new CBRbot(botService, curService, metalService, logger)
+          moexCurrencyService = new MoexCurrencyServiceImpl[F](config, client, logger)
+          bot = new CBRbot(botService, curService, metalService, moexCurrencyService, logger)
           _ <- bot.launch
         } yield ExitCode.Success
 
