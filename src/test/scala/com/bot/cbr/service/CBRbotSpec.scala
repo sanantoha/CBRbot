@@ -41,6 +41,10 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
       |`/metal` gold - show gold on today
       |`/metal` all - show all metals on today
       |`/metal` 2018-11-06 2018-11-08 - show all metals on 6, 7 and 8 of November
+      |`/moex` usd - show dollar currency on moex exchange on today
+      |`/moex` usd 10.01.2019 - show currency on moex exchange on 10.01.2019
+      |`/moex` eur - show euro currency on moex exchange on today
+      |`/moex` eur 12.01.2019 - show euro currency on moex exchange on 12.01.2019
       |""".stripMargin
 
   val defLocalDate = LocalDate.of(1970, 1, 1)
@@ -80,13 +84,13 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
   "launch" should "invoke showCurrency for usd on today" in {
     val update = BotUpdate(1L, BotMessage(12L, Chat(chatId), "/currency usd".some).some)
 
-    runLaunchForCurrency[IO](update).unsafeRunSync() shouldBe ((chatId, LocalDate.now, s"стоимость 1 USD на ${LocalDate.now} составляет 65"))
+    runLaunchForCurrency[IO](update).unsafeRunSync() shouldBe ((chatId, LocalDate.now, s"price 1 USD on ${LocalDate.now} is 65"))
   }
 
   it should "invoke showCurrency for eur on today" in {
     val update = BotUpdate(1L, BotMessage(12L, Chat(chatId), "/currency eur today".some).some)
 
-    runLaunchForCurrency[IO](update).unsafeRunSync() shouldBe ((chatId, LocalDate.now, s"стоимость 1 EUR на ${LocalDate.now} составляет 75"))
+    runLaunchForCurrency[IO](update).unsafeRunSync() shouldBe ((chatId, LocalDate.now, s"price 1 EUR on ${LocalDate.now} is 75"))
   }
 
   it should "invoke showCurrency for usd on yesterday" in {
@@ -94,7 +98,7 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
 
     val expDate = LocalDate.now.minusDays(1)
 
-    runLaunchForCurrency[IO](update).unsafeRunSync() shouldBe ((chatId, expDate, s"стоимость 1 USD на $expDate составляет 65"))
+    runLaunchForCurrency[IO](update).unsafeRunSync() shouldBe ((chatId, expDate, s"price 1 USD on $expDate is 65"))
   }
 
   it should "invoke showCurrency for usd on tomorrow" in {
@@ -102,7 +106,7 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
 
     val expDate = LocalDate.now.plusDays(1)
 
-    runLaunchForCurrency[IO](update).unsafeRunSync() shouldBe ((chatId, expDate, s"стоимость 1 USD на $expDate составляет 65"))
+    runLaunchForCurrency[IO](update).unsafeRunSync() shouldBe ((chatId, expDate, s"price 1 USD on $expDate is 65"))
   }
 
   it should "invoke showCurrency for usd on 2018-11-15" in {
@@ -110,16 +114,16 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
 
     val expLocalDate = LocalDate.of(2018, 11, 15)
 
-    runLaunchForCurrency[IO](update).unsafeRunSync() shouldBe ((chatId, expLocalDate, s"стоимость 1 USD на $expLocalDate составляет 65"))
+    runLaunchForCurrency[IO](update).unsafeRunSync() shouldBe ((chatId, expLocalDate, s"price 1 USD on $expLocalDate is 65"))
   }
 
   it should "invoke showCurrency for all" in {
     val update = BotUpdate(1L, BotMessage(12L, Chat(chatId), "/currency all".some).some)
 
     val expLocalDate = LocalDate.now
-    val expMsg = s"стоимость 1 USD на $expLocalDate составляет 65\n" +
-      s"стоимость 1 EUR на $expLocalDate составляет 75\n" +
-      s"стоимость 10 CZK на $expLocalDate составляет 29.53\n"
+    val expMsg = s"price 1 USD on $expLocalDate is 65\n" +
+      s"price 1 EUR on $expLocalDate is 75\n" +
+      s"price 10 CZK on $expLocalDate is 29.53\n"
 
     runLaunchForCurrency[IO](update).unsafeRunSync() shouldBe ((chatId, LocalDate.now, expMsg))
   }
@@ -128,9 +132,9 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
     val update = BotUpdate(1L, BotMessage(12L, Chat(chatId), "/currency all 2018-11-15".some).some)
 
     val expLocalDate = LocalDate.of(2018, 11, 15)
-    val expMsg = s"стоимость 1 USD на $expLocalDate составляет 65\n" +
-      s"стоимость 1 EUR на $expLocalDate составляет 75\n" +
-      s"стоимость 10 CZK на $expLocalDate составляет 29.53\n"
+    val expMsg = s"price 1 USD on $expLocalDate is 65\n" +
+      s"price 1 EUR on $expLocalDate is 75\n" +
+      s"price 10 CZK on $expLocalDate is 29.53\n"
 
     runLaunchForCurrency[IO](update).unsafeRunSync() shouldBe ((chatId, expLocalDate, expMsg))
   }
@@ -145,8 +149,8 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
 
     val expLocalDate = LocalDate.of(2018, 12, 1)
     val expLocalSecondDate = expLocalDate.plusDays(1)
-    val expMsg = s"стоимость Gold на $expLocalDate покупка 2610.66, продажа 2610.66\n" +
-                 s"стоимость Gold на $expLocalSecondDate покупка 2611.66, продажа 2612.66\n"
+    val expMsg = s"price Gold on $expLocalDate for buy 2610.66, sell 2610.66\n" +
+                 s"price Gold on $expLocalSecondDate for buy 2611.66, sell 2612.66\n"
 
     runLaunchForMetal[IO](update, lmet).unsafeRunSync() shouldBe ((chatId, expLocalDate, expLocalSecondDate, expMsg))
   }

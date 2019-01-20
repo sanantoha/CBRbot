@@ -16,6 +16,7 @@ package object domain {
   val currencyMsg = "/currency"
 
   val metalMsg = "/metal"
+  val moexCurMsg = "/moex"
 
   object date {
     val dateFormatISO = DateTimeFormatter.ISO_DATE

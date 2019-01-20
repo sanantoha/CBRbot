@@ -47,6 +47,7 @@ class CBRbot[F[_]: cats.effect.Async](botService: BotService[F],
     case `metalMsg` => showMetal(chatId, message + "all today")
     case msg if msg.startsWith(currencyMsg) => showCurrency(chatId, msg)
     case msg if msg.startsWith(metalMsg) => showMetal(chatId, msg)
+    case msg if msg.startsWith(moexCurMsg) => showMoexCurrency(chatId, msg)
     case msg => handleUnknown(chatId, msg)
   }
 
@@ -64,8 +65,17 @@ class CBRbot[F[_]: cats.effect.Async](botService: BotService[F],
         s"`$currencyMsg` all 2018-11-06 - show all currencies on the 6th of November in 2018 year\n" +
         s"`$metalMsg` gold - show gold on today\n" +
         s"`$metalMsg` all - show all metals on today\n" +
-        s"`$metalMsg` 2018-11-06 2018-11-08 - show all metals on 6, 7 and 8 of November\n"
+        s"`$metalMsg` 2018-11-06 2018-11-08 - show all metals on 6, 7 and 8 of November\n" +
+        s"`$moexCurMsg` usd - show dollar currency on moex exchange on today\n" +
+        s"`$moexCurMsg` usd 10.01.2019 - show currency on moex exchange on 10.01.2019\n" +
+        s"`$moexCurMsg` eur - show euro currency on moex exchange on today\n" +
+        s"`$moexCurMsg` eur 12.01.2019 - show euro currency on moex exchange on 12.01.2019\n"
     )
+
+  def showMoexCurrency(charId: Long, message: String): Stream[F, Unit] = {
+    val moexCurrencyRequest: Stream[F, MoexCurrencyRequest] = decode[MoexCurrencyRequest](message)
+    ???
+  }
 
   def showMetal(chatId: Long, message: String): Stream[F, Unit] = {
     val metalRequest: Stream[F, MetalRequest] = decode[MetalRequest](message)
@@ -133,9 +143,9 @@ class CBRbot[F[_]: cats.effect.Async](botService: BotService[F],
 object CBRbot {
 
   def prettyStringMetal(metal: Metal): String = {
-    s"стоимость ${metal.metalType} на ${metal.date} покупка ${metal.buy}, продажа ${metal.sell}"
+    s"price ${metal.metalType} on ${metal.date} for buy ${metal.buy}, sell ${metal.sell}"
   }
 
   def prettyStringCurrency(cur: Currency, date: LocalDate): String =
-    s"стоимость ${cur.nom} ${cur.name} на $date составляет ${cur.curs}"
+    s"price ${cur.nom} ${cur.name} on $date is ${cur.curs}"
 }
