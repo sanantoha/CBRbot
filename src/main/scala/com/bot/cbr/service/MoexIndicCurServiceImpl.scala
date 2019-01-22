@@ -1,29 +1,29 @@
 package com.bot.cbr.service
 
+import java.time.format.DateTimeFormatter
 import java.time.{LocalDate, LocalDateTime}
-import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 
 import cats.data.EitherNec
 import cats.effect._
+import cats.instances.either._
+import cats.instances.list._
+import cats.instances.parallel._
+import cats.syntax.either._
+import cats.syntax.functor._
+import cats.syntax.parallel._
 import com.bot.cbr.algebra.MoexIndicCurService
 import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.CBRError.{WrongUrl, WrongXMLFormat}
+import com.bot.cbr.domain.date._
 import com.bot.cbr.domain.{CBRError, MoexIndicCurrency}
-import io.chrisdavenport.log4cats.Logger
-import org.http4s.client.Client
 import fs2.Stream
-import org.http4s.Uri
-import cats.syntax.either._
-import cats.syntax.parallel._
-import cats.syntax.functor._
-import cats.instances.parallel._
 import io.chrisdavenport.linebacker.Linebacker
 import io.chrisdavenport.linebacker.contexts.Executors
+import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
+import org.http4s.Uri
+import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
-import cats.instances.list._
-import cats.instances.either._
-import com.bot.cbr.domain.date._
 
 import scala.xml.{Elem, Node, XML}
 

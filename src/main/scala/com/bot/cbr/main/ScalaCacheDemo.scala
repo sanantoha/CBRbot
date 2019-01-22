@@ -2,24 +2,19 @@ package com.bot.cbr.main
 
 import java.time.LocalDate
 
+import cats.data.EitherNec
 import cats.effect._
-import com.bot.cbr.domain.{CBRError, Currency}
-import scalacache._
-import scalacache.caffeine._
-import cats.syntax.functor._
+import cats.syntax.either._
 import cats.syntax.flatMap._
-import scalacache.CatsEffect.modes._
+import cats.syntax.functor._
 import cats.syntax.option._
-import cats.instances.option._
+import com.bot.cbr.cache.CurrencyCache._
+import com.bot.cbr.domain.{CBRError, Currency}
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
+import scalacache.CatsEffect.modes._
+import scalacache._
 
 import scala.concurrent.duration._
-import cats.syntax.show._
-import Currency._
-import cats.data.EitherNec
-import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
-import com.bot.cbr.cache.CurrencyCache._
-import cats.syntax.either._
-import cats.instances.vector._
 
 
 object ScalaCacheDemo extends IOApp {

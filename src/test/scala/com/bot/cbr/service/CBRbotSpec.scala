@@ -4,7 +4,7 @@ import java.time.{LocalDate => LD}
 import java.util.concurrent.Executors
 
 import cats.effect.concurrent.Ref
-import cats.effect.{Async, ContextShift, IO, Sync}
+import cats.effect.{Async, ContextShift, IO}
 import cats.syntax.apply._
 import cats.syntax.either._
 import cats.syntax.flatMap._
@@ -14,7 +14,6 @@ import cats.{Applicative, Apply}
 import cats.data.EitherNec
 import com.bot.cbr.UnitSpec
 import com.bot.cbr.algebra.{BotService, CurrencyService, MetalService, MoexCurrencyService}
-import com.bot.cbr.domain.CBRError.WrongUrl
 import com.bot.cbr.domain.MetalType.{Gold, Palladium, Platinum, Silver}
 import com.bot.cbr.domain._
 import fs2.Stream

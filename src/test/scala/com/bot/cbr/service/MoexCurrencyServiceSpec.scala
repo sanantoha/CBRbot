@@ -7,6 +7,7 @@ import cats.data.EitherNec
 import cats.effect.{ConcurrentEffect, ContextShift, IO, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.applicative._
 import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.{CBRError, MoexCurrency, MoexCurrencyType}
 import com.bot.cbr.domain.MoexCurrencyType._
@@ -16,7 +17,6 @@ import fs2.Stream
 import io.chrisdavenport.linebacker.Linebacker
 import io.chrisdavenport.linebacker.contexts.{Executors => E}
 import io.chrisdavenport.log4cats.noop.NoOpLogger
-import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import cats.syntax.either._
 
 import scala.concurrent.ExecutionContext
@@ -76,11 +76,10 @@ class MoexCurrencyServiceSpec extends UnitSpec {
     E.unbound[F].map(Linebacker.fromExecutorService[F]).use {
       implicit linebacker: Linebacker[F] =>
         for {
-          logger <- Slf4jLogger.create
-          dataFile = moexCurrencyType match {
+          dataFile <- (moexCurrencyType match {
             case USD => "usd_data.xml"
             case EUR => "eur_data.xml"
-          }
+          }).pure[F]
           response <- new ReadData[F](s"src/test/resources/$dataFile").apply()
           res <- runMoexCurrencyService[F](response, moexCurrencyType)
         } yield res

@@ -1,7 +1,6 @@
 package com.bot.cbr.service
 
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 import cats.data.{EitherNec, NonEmptyChain}
 import cats.effect._
