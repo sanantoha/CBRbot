@@ -170,6 +170,7 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
     ldRef <- Ref.of(defLD)
     dummyRef <- Ref.of(defLD)
     msgRef <- Ref.of("")
+    dummyMCRRef <- Ref.of[F, MoexCurrencyType](MoexCurrencyType.USD)
 
     logger = NoOpLogger.impl[F]
     lcur = List(
@@ -180,7 +181,7 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
     cs = currencyService[F](ldRef, lcur)
     bs = botService[F](chatRef, msgRef, botUpdate.some)
     ms = metalService[F](dummyRef, dummyRef, Nil)
-    mc = moexCurrencyService[F]()
+    mc = moexCurrencyService[F](dummyMCRRef, Nil)
     cbtBot = new CBRbot[F](bs, cs, ms, mc, logger)
 
     _ <- cbtBot.launch.compile.drain
@@ -195,6 +196,7 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
     startRef <- Ref.of(defLD)
     endRef <- Ref.of(defLD)
     dummyRef <- Ref.of(defLD)
+    dummyMCRRef <- Ref.of[F, MoexCurrencyType](MoexCurrencyType.USD)
     msgRef <- Ref.of("")
 
     logger = NoOpLogger.impl[F]
@@ -202,7 +204,7 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
     cs = currencyService[F](dummyRef, Nil)
     bs = botService[F](chatRef, msgRef, botUpdate.some)
     ms = metalService[F](startRef, endRef, lmet)
-    mc = moexCurrencyService[F]()
+    mc = moexCurrencyService[F](dummyMCRRef, Nil)
     cbtBot = new CBRbot[F](bs, cs, ms, mc, logger)
 
     _ <- cbtBot.launch.compile.drain
@@ -234,7 +236,8 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
       Stream.eval(startRef.set(start)).drain ++ Stream.eval(endRef.set(end)).drain ++ Stream.emits(res).covary[F]
   }
 
-  def moexCurrencyService[F[_]: Applicative](): MoexCurrencyService[F] = new MoexCurrencyService[F] {
-    override def getCurrencies(moexCurType: MoexCurrencyType): Stream[F, EitherNec[CBRError, MoexCurrency]] = ???
+  def moexCurrencyService[F[_]: Applicative](moexCurTypeRef: Ref[F, MoexCurrencyType], res: List[EitherNec[CBRError, MoexCurrency]]): MoexCurrencyService[F] = new MoexCurrencyService[F] {
+    override def getCurrencies(moexCurType: MoexCurrencyType): Stream[F, EitherNec[CBRError, MoexCurrency]] =
+      Stream.eval(moexCurTypeRef.set(moexCurType)).drain ++ Stream.emits(res).covary[F]
   }
 }
