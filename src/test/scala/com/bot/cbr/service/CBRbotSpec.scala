@@ -20,6 +20,7 @@ import fs2.Stream
 import io.chrisdavenport.log4cats.noop.NoOpLogger
 import org.scalatest.BeforeAndAfterEach
 import com.bot.cbr.cache.CurrencyCache._
+import com.bot.cbr.domain.MoexCurrencyType.{EUR, USD}
 
 import scala.concurrent.ExecutionContext
 import scalacache.CatsEffect.modes._
@@ -51,7 +52,7 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
 
   val chatId = 123L
 
-  val lmet = List(
+  val metals = List(
     Metal(Gold, LD.of(2018, 12, 1), BigDecimal(2610.66), BigDecimal(2610.66)).rightNec[CBRError],
     Metal(Silver, LD.of(2018, 12, 1), BigDecimal(30.51), BigDecimal(30.51)).rightNec[CBRError],
     Metal(Platinum, LD.of(2018, 12, 1), BigDecimal(1732.67), BigDecimal(1732.67)).rightNec[CBRError],
@@ -60,6 +61,19 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
     Metal(Silver, LD.of(2018, 12, 2), BigDecimal(31.51), BigDecimal(32.51)).rightNec[CBRError],
     Metal(Platinum, LD.of(2018, 12, 2), BigDecimal(1733.67), BigDecimal(1734.67)).rightNec[CBRError],
     Metal(Palladium, LD.of(2018, 12, 2), BigDecimal(2550.81), BigDecimal(2551.81)).rightNec[CBRError]
+  )
+
+  val moexCurs = List(
+    MoexCurrency(USD, LD.of(2019, 1, 15), BigDecimal(66.9875), BigDecimal(-0.0875)).rightNec[CBRError],
+    MoexCurrency(USD, LD.of(2019, 1, 14), BigDecimal(67.075), BigDecimal(0.2)).rightNec[CBRError],
+    MoexCurrency(USD, LD.of(2019, 1, 11), BigDecimal(66.875), BigDecimal(-0.035)).rightNec[CBRError],
+    MoexCurrency(USD, LD.of(2019, 1, 10), BigDecimal(66.91), BigDecimal(0.18)).rightNec[CBRError],
+    MoexCurrency(USD, LD.of(2019, 1, 9), BigDecimal(66.73), BigDecimal(-0.155)).rightNec[CBRError],
+    MoexCurrency(USD, LD.of(2019, 1, 8), BigDecimal(66.885), BigDecimal(-0.855)).rightNec[CBRError],
+    MoexCurrency(USD, LD.of(2019, 1, 4), BigDecimal(67.74), BigDecimal(-0.9)).rightNec[CBRError],
+    MoexCurrency(USD, LD.of(2019, 1, 3), BigDecimal(68.64), BigDecimal(-1.1775)).rightNec[CBRError],
+    MoexCurrency(USD, LD.of(2018, 12, 29), BigDecimal(69.8175), BigDecimal(0.3)).rightNec[CBRError],
+    MoexCurrency(USD, LD.of(2018, 12, 28), BigDecimal(69.5175), BigDecimal(-0.0425)).rightNec[CBRError]
   )
 
   override protected def afterEach(): Unit = {
@@ -152,7 +166,7 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
     val expMsg = s"price Gold on $expLD for buy 2610.66, sell 2610.66\n" +
                  s"price Gold on $expLocalSecondDate for buy 2611.66, sell 2612.66\n"
 
-    runLaunchForMetal[IO](update, lmet).unsafeRunSync() shouldBe ((chatId, expLD, expLocalSecondDate, expMsg))
+    runLaunchForMetal[IO](update, metals).unsafeRunSync() shouldBe ((chatId, expLD, expLocalSecondDate, expMsg))
   }
 
   it should "invoke showMetal for gold on 2018-11-11" in {
@@ -163,6 +177,14 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
     val expMsg = ""
 
     runLaunchForMetal[IO](update, Nil).unsafeRunSync() shouldBe ((chatId, expLD, expLD, expMsg))
+  }
+
+  it should "invoke showMoexCurrency for USD" in {
+    val update = BotUpdate(1L, BotMessage(12L, Chat(chatId), "/moex usd 2019-01-15".some).some)
+
+    val expMsg = "price USD on 2019-01-15 is 66.9875, change is -0.0875"
+
+    runLaunchForMoexCur[IO](update, moexCurs).unsafeRunSync() shouldBe ((chatId, MoexCurrencyType.USD, expMsg))
   }
 
   def runLaunchForCurrency[F[_]: Async](botUpdate: BotUpdate): F[(Long, LD, String)] = for {
@@ -191,7 +213,7 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
     msg <- msgRef.get
   } yield (chatId, ld, msg)
 
-  def runLaunchForMetal[F[_]: Async](botUpdate: BotUpdate, lmet: List[EitherNec[CBRError, Metal]]): F[(Long, LD, LD, String)] = for {
+  def runLaunchForMetal[F[_]: Async](botUpdate: BotUpdate, metals: List[EitherNec[CBRError, Metal]]): F[(Long, LD, LD, String)] = for {
     chatRef <- Ref.of(-1L)
     startRef <- Ref.of(defLD)
     endRef <- Ref.of(defLD)
@@ -203,7 +225,7 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
 
     cs = currencyService[F](dummyRef, Nil)
     bs = botService[F](chatRef, msgRef, botUpdate.some)
-    ms = metalService[F](startRef, endRef, lmet)
+    ms = metalService[F](startRef, endRef, metals)
     mc = moexCurrencyService[F](dummyMCRRef, Nil)
     cbtBot = new CBRbot[F](bs, cs, ms, mc, logger)
 
@@ -214,6 +236,27 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
     end <- endRef.get
     msg <- msgRef.get
   } yield (chatId, start, end, msg)
+
+  def runLaunchForMoexCur[F[_]: Async](botUpdate: BotUpdate, moexCurs: List[EitherNec[CBRError, MoexCurrency]]): F[(Long, MoexCurrencyType, String)] = for {
+    chatRef <- Ref.of(-1L)
+    dummyRef <- Ref.of(defLD)
+    msgRef <- Ref.of("")
+    moexCurTypeRef <- Ref.of(EUR: MoexCurrencyType)
+
+    logger = NoOpLogger.impl[F]
+
+    cs = currencyService[F](dummyRef, Nil)
+    bs = botService(chatRef, msgRef, botUpdate.some)
+    ms = metalService[F](dummyRef, dummyRef, Nil)
+    mc = moexCurrencyService(moexCurTypeRef, moexCurs)
+    cbtBot = new CBRbot[F](bs, cs, ms, mc, logger)
+
+    _ <- cbtBot.launch.compile.drain
+
+    chatId <- chatRef.get
+    msg <- msgRef.get
+    moexCurType <- moexCurTypeRef.get
+  } yield (chatId, moexCurType, msg)
 
   def botService[F[_]: Apply](chatRef: Ref[F, Long],
                               msgRef: Ref[F, String],
