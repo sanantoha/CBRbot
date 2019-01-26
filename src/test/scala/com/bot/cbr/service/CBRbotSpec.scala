@@ -179,10 +179,18 @@ class CBRbotSpec extends UnitSpec with BeforeAndAfterEach {
     runLaunchForMetal[IO](update, Nil).unsafeRunSync() shouldBe ((chatId, expLD, expLD, expMsg))
   }
 
-  it should "invoke showMoexCurrency for USD" in {
+  it should "invoke showMoexCurrency for USD on 2019-01-15" in {
     val update = BotUpdate(1L, BotMessage(12L, Chat(chatId), "/moex usd 2019-01-15".some).some)
 
     val expMsg = "price USD on 2019-01-15 is 66.9875, change is -0.0875"
+
+    runLaunchForMoexCur[IO](update, moexCurs).unsafeRunSync() shouldBe ((chatId, MoexCurrencyType.USD, expMsg))
+  }
+
+  it should "invoke showMoexCurrency for USD on 2019-01-14" in {
+    val update = BotUpdate(1L, BotMessage(12L, Chat(chatId), "/moex usd 2019-01-14".some).some)
+
+    val expMsg = "price USD on 2019-01-14 is 67.075, change is 0.2"
 
     runLaunchForMoexCur[IO](update, moexCurs).unsafeRunSync() shouldBe ((chatId, MoexCurrencyType.USD, expMsg))
   }
