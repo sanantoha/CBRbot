@@ -10,3 +10,7 @@ This bot shows currencies:
 /metal gold - show gold on today
 /metal all - show all metals on today
 /metal 2018-11-06 2018-11-08 - show all metals on 6, 7 and 8 of November
+/moex usd - show dollar currency on moex exchange on today
+/moex usd 10.01.2019 - show currency on moex exchange on 10.01.2019
+/moex eur - show euro currency on moex exchange on today
+/moex eur 12.01.2019 - show euro currency on moex exchange on 12.01.2019
