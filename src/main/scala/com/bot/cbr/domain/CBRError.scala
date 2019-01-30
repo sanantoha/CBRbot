@@ -2,7 +2,9 @@ package com.bot.cbr.domain
 
 import cats.Show
 
-sealed abstract class CBRError(val msg: String) extends Throwable(msg) with Product with Serializable
+import scala.util.control.NoStackTrace
+
+sealed abstract class CBRError(val msg: String) extends Exception(msg) with NoStackTrace
 
 object CBRError {
 

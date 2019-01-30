@@ -25,6 +25,7 @@ libraryDependencies ++= Seq(
 
   "io.chrisdavenport" %% "linebacker" % "0.2.0-M2",
   "io.chrisdavenport" %% "log4cats-slf4j" % "0.2.0",
+  "io.chrisdavenport" %% "log4cats-extras" % "0.2.0",
   "ch.qos.logback" % "logback-classic" % "1.2.3",
   "com.github.pureconfig" %% "pureconfig-cats-effect" % "0.9.2",
 
