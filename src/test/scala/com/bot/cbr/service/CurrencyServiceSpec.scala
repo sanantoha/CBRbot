@@ -4,23 +4,22 @@ import java.time.LocalDate
 import java.util.concurrent.Executors
 
 import cats.data.EitherNec
-import cats.effect.{ConcurrentEffect, ContextShift, IO}
+import cats.effect.{Blocker, ConcurrentEffect, ContextShift, IO, Resource}
 import com.bot.cbr.{ReadData, UnitSpec}
 import com.bot.cbr.utils._
 import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.{CBRError, Currency}
 import fs2.Stream
-import io.chrisdavenport.linebacker.Linebacker
-import io.chrisdavenport.linebacker.contexts.{Executors => E}
 import io.chrisdavenport.log4cats.noop.NoOpLogger
-import cats.syntax.functor._
-import cats.syntax.flatMap._
 import cats.syntax.either._
+import doobie.util.ExecutionContexts
 
 import scala.concurrent.ExecutionContext
 
 
 class CurrencyServiceSpec extends UnitSpec {
+
+  val poolSize = 3
 
   val expCurrencies = Vector(
     Currency("Австралийский доллар", 1, 48.4192, 36, "AUD").rightNec[CBRError],
@@ -69,13 +68,14 @@ class CurrencyServiceSpec extends UnitSpec {
   }
 
   def runTest[F[_]: ConcurrentEffect: ContextShift](): F[Vector[EitherNec[CBRError, Currency]]] = {
-    E.unbound[F].map(Linebacker.fromExecutorService[F]).use {
-      implicit linebacker: Linebacker[F] =>
-        for {
-          response <- new ReadData[F]("src/test/resources/currency_data.xml").apply()
-          res <- runCurrencyService[F](response)
-        } yield res
-    }
+
+    val resource = for {
+      connEc <- ExecutionContexts.fixedThreadPool[F](poolSize)
+      blocker = Blocker.liftExecutionContext(connEc)
+      data <- Resource.liftF(new ReadData[F]("src/test/resources/currency_data.xml", blocker).apply())
+    } yield data
+
+    resource.use(runCurrencyService[F])
   }
 
   def runCurrencyService[F[_] : ConcurrentEffect](response: String): F[Vector[EitherNec[CBRError, Currency]]] = {

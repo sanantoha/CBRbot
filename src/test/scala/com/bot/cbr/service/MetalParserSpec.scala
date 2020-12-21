@@ -9,7 +9,6 @@ import com.bot.cbr.domain.{CBRError, Metal}
 import cats.syntax.either._
 import cats.instances.either._
 import com.bot.cbr.domain.CBRError.WrongXMLFormat
-import cats.instances.parallel._
 import scala.xml.XML
 
 class MetalParserSpec extends UnitSpec {
@@ -23,7 +22,7 @@ class MetalParserSpec extends UnitSpec {
 
   "Parse Gold source" should "return expected metal" in {
     val node = XML.loadString(srcGold)
-    val parser = new MetalParserImpl[EitherNec[CBRError, ?], NonEmptyChain[CBRError]](NonEmptyChain.one)
+    val parser = new MetalParserImpl[EitherNec[CBRError, *], NonEmptyChain[CBRError]](NonEmptyChain.one)
 
     val date = LocalDate.of(2018, 11, 29)
     val expMetal = Metal(Gold, date, BigDecimal(2611.15), BigDecimal(2611.15))
@@ -33,7 +32,7 @@ class MetalParserSpec extends UnitSpec {
 
   it should "return chain of errors" in {
     val node = XML.loadString(invalidMetal)
-    val parser = new MetalParserImpl[EitherNec[CBRError, ?], NonEmptyChain[CBRError]](NonEmptyChain.one)
+    val parser = new MetalParserImpl[EitherNec[CBRError, *], NonEmptyChain[CBRError]](NonEmptyChain.one)
 
     val nec: NonEmptyChain[CBRError] = NonEmptyChain(
       WrongXMLFormat("key not found: 10"),
@@ -47,7 +46,7 @@ class MetalParserSpec extends UnitSpec {
 
   "Parse Silver source" should "return expected metal" in {
     val node = XML.loadString(srcSilver)
-    val parser = new MetalParserImpl[EitherNec[CBRError, ?], NonEmptyChain[CBRError]](NonEmptyChain.one)
+    val parser = new MetalParserImpl[EitherNec[CBRError, *], NonEmptyChain[CBRError]](NonEmptyChain.one)
 
     val date = LocalDate.of(2018, 11, 30)
     val expMetal = Metal(Silver, date, BigDecimal(30.72), BigDecimal(30.72))
@@ -57,7 +56,7 @@ class MetalParserSpec extends UnitSpec {
 
   "Parse Platinum" should "return expected metal" in {
     val node = XML.loadString(srcPlatinum)
-    val parser = new MetalParserImpl[EitherNec[CBRError, ?], NonEmptyChain[CBRError]](NonEmptyChain.one)
+    val parser = new MetalParserImpl[EitherNec[CBRError, *], NonEmptyChain[CBRError]](NonEmptyChain.one)
 
     val date = LocalDate.of(2018, 11, 29)
     val expMetal = Metal(Platinum, date, BigDecimal(1788.55), BigDecimal(1788.55))
@@ -67,7 +66,7 @@ class MetalParserSpec extends UnitSpec {
 
   "Parse Palladium" should "return expected metal" in {
     val node = XML.loadString(srcPalladium)
-    val parser = new MetalParserImpl[EitherNec[CBRError, ?], NonEmptyChain[CBRError]](NonEmptyChain.one)
+    val parser = new MetalParserImpl[EitherNec[CBRError, *], NonEmptyChain[CBRError]](NonEmptyChain.one)
 
     val date = LocalDate.of(2018, 11, 29)
     val expMetal = Metal(Palladium, date, BigDecimal(2500.96), BigDecimal(2700.96))

@@ -6,21 +6,19 @@ import java.time.format.DateTimeFormatter
 import cats.effect._
 import cats.syntax.applicativeError._
 import cats.syntax.either._
-import cats.syntax.functor._
 import cats.syntax.show._
 import com.bot.cbr.algebra.MetalService3
 import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.CBRError.{WrongUrl, WrongXMLFormat}
 import com.bot.cbr.domain.Metal
 import fs2.Stream
-import io.chrisdavenport.linebacker.Linebacker
-import io.chrisdavenport.linebacker.contexts.Executors
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.http4s.Uri
 import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
-import cats.temp.par._
+import cats.Parallel
+import doobie.util.ExecutionContexts
 
 import scala.xml.XML
 
@@ -34,7 +32,7 @@ class MetalServiceImpl3[F[_]: ConcurrentEffect, E](config: Config,
   val dateFormatMetal = DateTimeFormatter.ofPattern("dd.MM.yyyy")
 
   def url: F[Uri] =
-    Uri.fromString(config.urlMetal).leftMap(p => WrongUrl(p.message): Throwable).raiseOrPure
+    Uri.fromString(config.urlMetal).leftMap(p => WrongUrl(p.message): Throwable).liftTo[F]
 
   override def getMetals(start: LocalDate, end: LocalDate): Stream[F, Metal] = for {
     baseUri <- Stream.eval(url)
@@ -67,24 +65,27 @@ class MetalServiceImpl3[F[_]: ConcurrentEffect, E](config: Config,
 
 object MetalServiceClient3 extends IOApp {
 
-  def runMetalService[F[_]: ConcurrentEffect: Par](): F[Vector[Either[Throwable, Metal]]] =
-    Executors.unbound[F].map(Linebacker.fromExecutorService[F]).use {
-      implicit linebacker: Linebacker[F] =>
+  def runMetalService[F[_]: ConcurrentEffect: Parallel](): F[Vector[Either[Throwable, Metal]]] = {
         val metals = for {
-          client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
-          logger <- Stream.eval(Slf4jLogger.create)
+          serverEc <- ExecutionContexts.cachedThreadPool[F]
+          client <- BlazeClientBuilder[F](serverEc).resource
+          logger <- Resource.liftF(Slf4jLogger.create)
           parser = new MetalParserImpl[F, Throwable](identity)
           metalService = new MetalServiceImpl3[F, Throwable](
             Config("url", "url", "url", "http://www.cbr.ru/scripts/xml_metall.asp", MoexCurrencyUrlConfig("url", "url")),
             client,
             logger,
             parser)
-          eiMetal <- metalService.getMetals(LocalDate.now.minusDays(5), LocalDate.now).attempt
+        } yield metalService
 
-          _ <- Stream.eval(logger.info(eiMetal.fold(nec => "Error: " + nec.toString, _.show)))
-        } yield eiMetal
-
-        metals.compile.toVector
+        metals.use { service =>
+          val r = for {
+            logger <- Stream.eval(Slf4jLogger.create)
+            eiMetal <- service.getMetals(LocalDate.now.minusDays(5), LocalDate.now).attempt
+            _ <- Stream.eval(logger.info(eiMetal.fold(nec => "Error: " + nec.toString, _.show)))
+          } yield eiMetal
+          r.compile.toVector
+        }
     }
 
   override def run(args: List[String]): IO[ExitCode] = {

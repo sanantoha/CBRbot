@@ -7,18 +7,15 @@ import cats.data.EitherNec
 import cats.effect._
 import cats.instances.either._
 import cats.instances.list._
-import cats.instances.parallel._
 import cats.syntax.either._
-import cats.syntax.functor._
 import cats.syntax.parallel._
 import com.bot.cbr.algebra.MoexIndicCurService
 import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.CBRError.{WrongUrl, WrongXMLFormat}
 import com.bot.cbr.domain.date._
 import com.bot.cbr.domain.{CBRError, MoexIndicCurrency}
+import doobie.util.ExecutionContexts
 import fs2.Stream
-import io.chrisdavenport.linebacker.Linebacker
-import io.chrisdavenport.linebacker.contexts.Executors
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.http4s.Uri
@@ -32,7 +29,7 @@ class MoexIndicCurServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Cl
   type E[A] = EitherNec[CBRError, A]
 
   def url: F[Uri] =
-    Uri.fromString(config.urlMoexCurrency).leftMap(p => WrongUrl(p.message): Throwable).raiseOrPure[F]
+    Uri.fromString(config.urlMoexCurrency).leftMap(p => WrongUrl(p.message): Throwable).liftTo[F]
 
   override def getCurrencies(exchangeType: String, date: LocalDate): Stream[F, EitherNec[CBRError, MoexIndicCurrency]] = for {
     baseUri <- Stream.eval(url)
@@ -78,19 +75,16 @@ class MoexIndicCurServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Cl
 object MoexIndicCurServiceClient extends IOApp {
 
   def runCurrencyService[F[_]: ConcurrentEffect]: F[Vector[EitherNec[CBRError, MoexIndicCurrency]]] = {
-    Executors.unbound[F].map(Linebacker.fromExecutorService[F]).use {
-      implicit linebacker: Linebacker[F] =>
-        val currencies = for {
-          client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
-          logger <- Stream.eval(Slf4jLogger.create)
-          config = Config("token", "url", "https://www.moex.com/export/derivatives/currency-rate.aspx", "url", MoexCurrencyUrlConfig("url", "url"))
-          service = new MoexIndicCurServiceImpl[F](config, client, logger)
-          cur <- service.getCurrencies("EUR/RUB", LocalDate.now.minusDays(1))
-          _ <- Stream.eval(logger.info(cur.show))
-        } yield cur
 
-        currencies.compile.toVector
-    }
+      val currencies = for {
+        serverEc <- ExecutionContexts.cachedThreadPool[F]
+        client <- BlazeClientBuilder[F](serverEc).resource
+        logger <- Resource.liftF(Slf4jLogger.create)
+        config = Config("token", "url", "https://www.moex.com/export/derivatives/currency-rate.aspx", "url", MoexCurrencyUrlConfig("url", "url"))
+        service = new MoexIndicCurServiceImpl[F](config, client, logger)
+      } yield service
+
+      currencies.use(_.getCurrencies("EUR/RUB", LocalDate.now.minusDays(1)).compile.toVector)
   }
 
   override def run(args: List[String]): IO[ExitCode] =

@@ -4,24 +4,23 @@ import java.time.LocalDate
 import java.util.concurrent.Executors
 
 import cats.data.EitherNec
-import cats.effect.{ConcurrentEffect, ContextShift, IO}
+import cats.effect.{Blocker, ConcurrentEffect, ContextShift, IO, Resource}
 import cats.syntax.either._
-import cats.syntax.flatMap._
-import cats.syntax.functor._
-import cats.temp.par._
+import cats.Parallel
 import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.MetalType.{Gold, Palladium, Platinum, Silver}
 import com.bot.cbr.domain.{CBRError, Metal}
 import com.bot.cbr.utils._
 import com.bot.cbr.{ReadData, UnitSpec}
+import doobie.util.ExecutionContexts
 import fs2.Stream
-import io.chrisdavenport.linebacker.Linebacker
-import io.chrisdavenport.linebacker.contexts.{Executors => E}
 import io.chrisdavenport.log4cats.noop.NoOpLogger
 
 import scala.concurrent.ExecutionContext
 
 class MetalServiceSpec extends UnitSpec {
+
+  val poolSize = 3
 
   val expMetals = Vector(
     Metal(Gold, LocalDate.of(2018, 12, 1), BigDecimal(2610.66), BigDecimal(2610.66)).rightNec[CBRError],
@@ -37,7 +36,7 @@ class MetalServiceSpec extends UnitSpec {
     runTest[IO]().unsafeRunSync() shouldBe expMetals
   }
 
-  def runMetalService[F[_]: ConcurrentEffect: Par](response: String): F[Vector[EitherNec[CBRError, Metal]]] = {
+  def runMetalService[F[_]: ConcurrentEffect: Parallel](response: String): F[Vector[EitherNec[CBRError, Metal]]] = {
     val metals = for {
       client <- Stream.emit(mkClient[F](response)).covary[F]
       logger <- Stream.emit(NoOpLogger.impl[F]).covary[F]
@@ -48,13 +47,13 @@ class MetalServiceSpec extends UnitSpec {
     metals.compile.toVector
   }
 
-  def runTest[F[_]: ConcurrentEffect: ContextShift: Par](): F[Vector[EitherNec[CBRError, Metal]]] = {
-    E.unbound[F].map(Linebacker.fromExecutorService[F]).use {
-      implicit linebacker: Linebacker[F] =>
-        for {
-          response <- new ReadData[F]("src/test/resources/metal_data.xml").apply()
-          res <- runMetalService[F](response)
-        } yield res
-    }
+  def runTest[F[_]: ConcurrentEffect: ContextShift: Parallel](): F[Vector[EitherNec[CBRError, Metal]]] = {
+    val resource = for {
+      connEc <- ExecutionContexts.fixedThreadPool[F](poolSize)
+      blocker = Blocker.liftExecutionContext(connEc)
+      data <- Resource.liftF(new ReadData[F]("src/test/resources/metal_data.xml", blocker).apply())
+    } yield data
+
+    resource.use(runMetalService[F])
   }
 }

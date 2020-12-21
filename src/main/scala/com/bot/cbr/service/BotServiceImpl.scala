@@ -11,9 +11,8 @@ import com.bot.cbr.algebra.BotService
 import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.CBRError.WrongUrl
 import com.bot.cbr.domain.{BotResponse, BotUpdate}
+import doobie.util.ExecutionContexts
 import fs2.Stream
-import io.chrisdavenport.linebacker.Linebacker
-import io.chrisdavenport.linebacker.contexts.Executors
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import io.circe.generic.auto._
@@ -33,9 +32,9 @@ class BotServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Client[F], 
     Stream.eval(ApplicativeError[F, Throwable].fromEither(
       botApiUri.map { uri =>
         uri / "sendMessage" =? Map (
-          "chat_id" -> Seq(chatId.toString),
-          "parse_mode" -> Seq("Markdown"),
-          "text" -> Seq(message))
+          "chat_id" -> List(chatId.toString),
+          "parse_mode" -> List("Markdown"),
+          "text" -> List(message))
       }
     ))
   }
@@ -44,9 +43,9 @@ class BotServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Client[F], 
     Stream.eval(ApplicativeError[F, Throwable].fromEither(
       botApiUri.map { uri =>
         uri / "getUpdates" =? Map(
-          "offset" -> Seq((offset + 1).toString),
-          "timeout" -> Seq("0.5"),
-          "allowed_updates" -> Seq("""["message"]""")
+          "offset" -> List((offset + 1).toString),
+          "timeout" -> List("0.5"),
+          "allowed_updates" -> List("""["message"]""")
         )
       }
     ))
@@ -104,48 +103,50 @@ class BotServiceImpl[F[_]: ConcurrentEffect](config: Config, client: Client[F], 
 
 object BotAPIServiceTest extends IOApp {
 
-  import cats.syntax.functor._
   import cats.syntax.show._
   import com.bot.cbr.domain.BotUpdate._
 
-  def runSendMessage[F[_]: ConcurrentEffect]: F[Unit] =
-    Executors.unbound[F].map(Linebacker.fromExecutorService[F]).use {
-      implicit linebacker: Linebacker[F] =>
-        val res = for {
-          client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
-          logger <- Stream.eval(Slf4jLogger.create)
+  def runSendMessage[F[_]: ConcurrentEffect: Timer]: F[ExitCode] = {
+      val res = for {
+        serverEc <- ExecutionContexts.cachedThreadPool[F]
+        client <- BlazeClientBuilder[F](serverEc).resource
+        logger <- Resource.liftF(Slf4jLogger.create)
 
-          config = Config("https://api.telegram.org/bot<Token>", "url", "url", "url", MoexCurrencyUrlConfig("url", "url"))
+        config = Config("https://api.telegram.org/bot<Token>", "url", "url", "url", MoexCurrencyUrlConfig("url", "url"))
 
-          service = new BotServiceImpl[F](config, client, logger)
+        service = new BotServiceImpl[F](config, client, logger)
+      } yield service
 
-          _ <- service.sendMessage(-311412191, "test!")
-          _ <- service.sendMessage(-311412191, "Hello world!")
-        } yield ()
-
-        res.compile.drain
+      res.use { service =>
+        (service.sendMessage(-311412191, "test!").drain ++
+          service.sendMessage(-311412191, "Hello world!").drain).compile.drain
+      }.as(ExitCode.Success)
     }
 
-  def runPollUpdates[F[_]: ConcurrentEffect]: F[Unit] =
-    Executors.unbound[F].map(Linebacker.fromExecutorService[F]).use {
-      implicit linebacker: Linebacker[F] =>
+  def runPollUpdates[F[_]: ConcurrentEffect]: F[ExitCode] = {
         val res = for {
-          client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
-          logger <- Stream.eval(Slf4jLogger.create)
+          serverEc <- ExecutionContexts.cachedThreadPool[F]
+          client <- BlazeClientBuilder[F](serverEc).resource
+          logger <- Resource.liftF(Slf4jLogger.create)
 
           config = Config("https://api.telegram.org/bot<Token>", "url", "url", "url", MoexCurrencyUrlConfig("url", "url"))
           service = new BotServiceImpl[F](config, client, logger)
 
-          botUpdate <- service.pollUpdates(1)
-          _ <- Stream.eval(logger.info(botUpdate.show))
-        } yield ()
+        } yield service
 
-        res.compile.drain
+        res.use { service =>
+          val r = for {
+          logger <- Stream.eval(Slf4jLogger.create)
+            botUpdate <- service.pollUpdates(1)
+            _ <- Stream.eval(logger.info(botUpdate.show))
+          } yield ()
+          r.compile.drain
+        }.as(ExitCode.Success)
     }
 
     override def run(args: List[String]): IO[ExitCode] = {
-      runSendMessage[IO] as ExitCode.Success
-//      runPollUpdates[IO] as ExitCode.Success
+      runSendMessage[IO]
+//      runPollUpdates[IO]
     }
 
 }

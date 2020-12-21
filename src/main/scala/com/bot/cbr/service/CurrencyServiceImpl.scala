@@ -9,15 +9,12 @@ import cats.effect._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.either._
-import cats.syntax.functor._
 import cats.syntax.show._
 import com.bot.cbr.algebra.CurrencyService
 import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.CBRError.{WrongUrl, WrongXMLFormat}
 import com.bot.cbr.domain.{CBRError, Currency}
 import fs2.Stream
-import io.chrisdavenport.linebacker.Linebacker
-import io.chrisdavenport.linebacker.contexts.Executors
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.http4s.client.Client
@@ -25,7 +22,8 @@ import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.{Header, Headers, Method, Request, Uri}
 import cats.instances.string._
 import cats.syntax.parallel._
-import cats.instances.parallel._
+import cats.instances.either._
+import doobie.util.ExecutionContexts
 
 import scala.xml.{Node, XML}
 
@@ -53,7 +51,7 @@ class CurrencyServiceImpl[F[_] : ConcurrentEffect](config: Config, client: Clien
         Request[F](
           method = Method.POST,
           uri = x,
-          headers = Headers(
+          headers = Headers.of(
             Header("Host", "www.cbr.ru"),
             Header("Content-Type", "application/soap+xml; charset=utf-8"),
             Header("Content-Length", "length")
@@ -102,18 +100,16 @@ class CurrencyServiceImpl[F[_] : ConcurrentEffect](config: Config, client: Clien
 
 object CurrencyClient extends IOApp {
 
-  def runCurrencyService[F[_] : ConcurrentEffect]: F[Vector[EitherNec[CBRError, Currency]]] =
-    Executors.unbound[F].map(Linebacker.fromExecutorService[F]).use {
-      implicit linebacker: Linebacker[F] =>
-        val currencies = for {
-          client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
-          logger <- Stream.eval(Slf4jLogger.create)
-          config = Config("token", "https://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx", "url", "url", MoexCurrencyUrlConfig("url", "url"))
-          service = new CurrencyServiceImpl[F](config, client, logger)
-          res <- service.getCurrencies(LocalDate.now())
-        } yield res
+  def runCurrencyService[F[_] : ConcurrentEffect]: F[Vector[EitherNec[CBRError, Currency]]] = {
+      val currencies = for {
+        serverEc <- ExecutionContexts.cachedThreadPool[F]
+        client <- BlazeClientBuilder[F](serverEc).resource
+        logger <- Resource.liftF(Slf4jLogger.create)
+        config = Config("token", "https://www.cbr.ru/DailyInfoWebServ/DailyInfo.asmx", "url", "url", MoexCurrencyUrlConfig("url", "url"))
+        service = new CurrencyServiceImpl[F](config, client, logger)
+      } yield service
 
-        currencies.compile.toVector
+      currencies.use(_.getCurrencies(LocalDate.now()).compile.toVector)
     }
 
 

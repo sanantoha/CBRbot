@@ -4,24 +4,22 @@ import java.time.{LocalDate => LD}
 import java.util.concurrent.Executors
 
 import cats.data.EitherNec
-import cats.effect.{ConcurrentEffect, ContextShift, IO, Sync}
-import cats.syntax.flatMap._
-import cats.syntax.functor._
-import cats.syntax.applicative._
+import cats.effect.{Blocker, ConcurrentEffect, ContextShift, IO, Resource, Sync}
 import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.{CBRError, MoexCurrency, MoexCurrencyType}
 import com.bot.cbr.domain.MoexCurrencyType._
 import com.bot.cbr.utils.mkClient
 import com.bot.cbr.{ReadData, UnitSpec}
 import fs2.Stream
-import io.chrisdavenport.linebacker.Linebacker
-import io.chrisdavenport.linebacker.contexts.{Executors => E}
 import io.chrisdavenport.log4cats.noop.NoOpLogger
 import cats.syntax.either._
+import doobie.util.ExecutionContexts
 
 import scala.concurrent.ExecutionContext
 
 class MoexCurrencyServiceSpec extends UnitSpec {
+
+  val poolSize = 3
 
   val testEc = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
   implicit val cs: ContextShift[IO] = IO.contextShift(testEc)
@@ -73,16 +71,16 @@ class MoexCurrencyServiceSpec extends UnitSpec {
 
 
   def runTest[F[_] : ConcurrentEffect : ContextShift](moexCurrencyType: MoexCurrencyType): F[Vector[EitherNec[CBRError, MoexCurrency]]] = {
-    E.unbound[F].map(Linebacker.fromExecutorService[F]).use {
-      implicit linebacker: Linebacker[F] =>
-        for {
-          dataFile <- (moexCurrencyType match {
-            case USD => "usd_data.xml"
-            case EUR => "eur_data.xml"
-          }).pure[F]
-          response <- new ReadData[F](s"src/test/resources/$dataFile").apply()
-          res <- runMoexCurrencyService[F](response, moexCurrencyType)
-        } yield res
-    }
+    val resource = for {
+      connEc <- ExecutionContexts.fixedThreadPool[F](poolSize)
+      dataFile = moexCurrencyType match {
+        case USD => "usd_data.xml"
+        case EUR => "eur_data.xml"
+      }
+      blocker = Blocker.liftExecutionContext(connEc)
+      data <- Resource.liftF(new ReadData[F](s"src/test/resources/$dataFile", blocker).apply())
+    } yield data
+
+    resource.use(runMoexCurrencyService[F](_, moexCurrencyType))
   }
 }

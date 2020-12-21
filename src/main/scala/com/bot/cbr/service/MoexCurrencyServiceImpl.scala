@@ -20,11 +20,9 @@ import net.ruippeixotog.scalascraper.scraper.ContentExtractors.{element, element
 import com.bot.cbr.domain.date._
 import java.time.LocalDate
 import java.util.Locale
-import cats.syntax.functor._
+
 import cats.syntax.parallel._
-import cats.instances.parallel._
-import io.chrisdavenport.linebacker.Linebacker
-import io.chrisdavenport.linebacker.contexts.Executors
+import doobie.util.ExecutionContexts
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.http4s.client.blaze.BlazeClientBuilder
 
@@ -32,6 +30,8 @@ import org.http4s.client.blaze.BlazeClientBuilder
 class MoexCurrencyServiceImpl[F[_]: Sync](config: Config, client: Client[F], logger: Logger[F]) extends MoexCurrencyService[F] {
 
   type E[A] = EitherNec[CBRError, A]
+
+//  val streamLogger = logger.mapK(λ[F ~> Stream[F, ?]](Stream.eval(_))
 
   Locale.setDefault(new Locale("ru", "RU"))
 
@@ -41,16 +41,17 @@ class MoexCurrencyServiceImpl[F[_]: Sync](config: Config, client: Client[F], log
       case MoexCurrencyType.EUR => config.moexCurUrlConfig.urlEur
     }
 
-    Uri.fromString(base).leftMap(p => WrongUrl(p.message): Throwable).raiseOrPure[F]
+    Uri.fromString(base).leftMap(p => WrongUrl(p.message): Throwable).liftTo[F]
   }
 
   override def getCurrencies(moexCurType: MoexCurrencyType): Stream[F, EitherNec[CBRError, MoexCurrency]] = for {
     uri <- Stream.eval(url(moexCurType))
     _ <- Stream.eval(logger.info(s"getCurrencies($moexCurType) uri: $uri"))
-    s <- Stream.eval(client.expect[String](uri))
+    eiS <- Stream.eval(client.expect[String](uri)).attempt
+    _ <- Stream.eval(logger.info(eiS.fold(ex => ex.getMessage, identity)))
 
     browser = JsoupBrowser()
-    eiDoc <- Stream.eval(Sync[F].delay(browser.parseString(s))).attempt
+    eiDoc <- Stream.eval(Sync[F].delay(browser.parseString(eiS.fold(_ => "", identity)))).attempt
     cur <- eiDoc match {
       case Right(doc) => parseMoexCurrencies(moexCurType, doc)
       case Left(e) => Stream.eval(logger.error(e)(s"Error parsing ${e.getMessage}")).drain ++
@@ -93,21 +94,27 @@ class MoexCurrencyServiceImpl[F[_]: Sync](config: Config, client: Client[F], log
 object MoexCurrencyServiceClient extends IOApp {
 
   def runMoexCurrencyService[F[_]: ConcurrentEffect](): F[Vector[EitherNec[CBRError, MoexCurrency]]] = {
-    Executors.unbound[F].map(Linebacker.fromExecutorService[F]).use {
-      implicit linebacker: Linebacker[F] =>
-        val currencies = for {
-          client <- BlazeClientBuilder[F](linebacker.blockingContext).stream
-          logger <- Stream.eval(Slf4jLogger.create)
-          config = Config("token", "url", "https://www.moex.com/export/derivatives/currency-rate.aspx", "url",
-            MoexCurrencyUrlConfig("https://news.yandex.ru/quotes/2002.html", "https://news.yandex.ru/quotes/2000.html")
-          )
-          service = new MoexCurrencyServiceImpl[F](config, client, logger)
-          cur <- service.getCurrencies(MoexCurrencyType.EUR)
-          _ <- Stream.eval(logger.info(cur.show))
-        } yield cur
 
-        currencies.compile.toVector
-    }
+      val currencies = for {
+        serverEc <- ExecutionContexts.cachedThreadPool[F]
+        client <- BlazeClientBuilder[F](serverEc).resource
+        logger <- Resource.liftF(Slf4jLogger.create)
+        config = Config("token", "url", "https://www.moex.com/export/derivatives/currency-rate.aspx", "url",
+          MoexCurrencyUrlConfig("https://news.yandex.ru/quotes/2002.html", "https://news.yandex.ru/quotes/2000.html")
+        )
+        service = new MoexCurrencyServiceImpl[F](config, client, logger)
+
+      } yield service
+
+      currencies.use { service =>
+        val r = for {
+            logger <- Stream.eval(Slf4jLogger.create)
+            cur <- service.getCurrencies(MoexCurrencyType.EUR)
+            _ <- Stream.eval(logger.info(cur.show))
+          } yield cur
+
+        r.compile.toVector
+      }
   }
 
   override def run(args: List[String]): IO[ExitCode] =

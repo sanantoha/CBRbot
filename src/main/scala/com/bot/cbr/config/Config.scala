@@ -1,8 +1,9 @@
 package com.bot.cbr.config
 
-import cats.effect.{ContextShift, Sync}
-import io.chrisdavenport.linebacker.Linebacker
-import pureconfig.module.catseffect._
+import cats.effect.{Blocker, ContextShift, Sync}
+import pureconfig.ConfigSource
+import pureconfig.module.catseffect.syntax._
+import pureconfig.generic.auto._
 
 final case class MoexCurrencyUrlConfig(urlUsd: String, urlEur: String)
 
@@ -14,6 +15,6 @@ final case class Config(urlBotapi: String,
 
 object Config {
 
-  def load[F[_]: Sync: ContextShift](implicit linebacker: Linebacker[F]): F[Config] =
-    linebacker.blockCS(loadConfigF[F, Config]("cbr"))
+  def load[F[_]: Sync: ContextShift](blocker: Blocker): F[Config] =
+    ConfigSource.default.at("cbr").loadF[F, Config](blocker)
 }

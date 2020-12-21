@@ -4,22 +4,21 @@ import java.time.{LocalDate, LocalDateTime}
 import java.util.concurrent.Executors
 
 import cats.data.EitherNec
-import cats.effect.{ConcurrentEffect, ContextShift, IO}
+import cats.effect.{Blocker, ConcurrentEffect, ContextShift, IO, Resource}
 import com.bot.cbr.{ReadData, UnitSpec}
 import com.bot.cbr.config.{Config, MoexCurrencyUrlConfig}
 import com.bot.cbr.domain.{CBRError, MoexIndicCurrency}
 import com.bot.cbr.utils.mkClient
 import fs2.Stream
-import cats.syntax.functor._
-import cats.syntax.flatMap._
-import io.chrisdavenport.linebacker.Linebacker
 import io.chrisdavenport.log4cats.noop.NoOpLogger
-import io.chrisdavenport.linebacker.contexts.{Executors => E}
 import cats.syntax.either._
+import doobie.util.ExecutionContexts
 
 import scala.concurrent.ExecutionContext
 
 class MoexIndicCurServiceSpec extends UnitSpec {
+
+  val poolSize = 3
 
   val expIndicCur = Vector(
     MoexIndicCurrency("EUR/RUB", LocalDateTime.of(2019, 1, 11, 18, 30, 0), BigDecimal(76.9564)).rightNec[CBRError],
@@ -47,13 +46,13 @@ class MoexIndicCurServiceSpec extends UnitSpec {
   }
 
   def runTest[F[_]: ConcurrentEffect: ContextShift](): F[Vector[EitherNec[CBRError, MoexIndicCurrency]]] = {
-    E.unbound[F].map(Linebacker.fromExecutorService[F]).use {
-      implicit linebacker: Linebacker[F] =>
-        for {
-          response <- new ReadData[F]("src/test/resources/moex_indic_cur_data.xml").apply()
-          res <- runMoexIndicCurService[F](response)
-        } yield res
-    }
+    val resource = for {
+        connEc <- ExecutionContexts.fixedThreadPool[F](poolSize)
+        blocker = Blocker.liftExecutionContext(connEc)
+        response <- Resource.liftF(new ReadData[F]("src/test/resources/moex_indic_cur_data.xml", blocker).apply())
+    } yield response
+
+    resource.use(runMoexIndicCurService[F])
   }
 
 }
