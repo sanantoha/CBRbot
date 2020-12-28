@@ -11,9 +11,10 @@ import com.bot.cbr.domain.MoexCurrencyType._
 import com.bot.cbr.utils.mkClient
 import com.bot.cbr.{ReadData, UnitSpec}
 import fs2.Stream
-import io.chrisdavenport.log4cats.noop.NoOpLogger
+//import io.chrisdavenport.log4cats.noop.NoOpLogger
 import cats.syntax.either._
 import doobie.util.ExecutionContexts
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
 import scala.concurrent.ExecutionContext
 
@@ -54,14 +55,15 @@ class MoexCurrencyServiceSpec extends UnitSpec {
     runTest[IO](USD).unsafeRunSync() shouldBe expMoexUSDCurs
   }
 
-  it should "return EUR currency" in {
-    runTest[IO](EUR).unsafeRunSync() shouldBe expMoexEURCurs
-  }
+//  it should "return EUR currency" in {
+//    runTest[IO](EUR).unsafeRunSync() shouldBe expMoexEURCurs
+//  }
 
   def runMoexCurrencyService[F[_] : Sync](response: String, moexCurrencyType: MoexCurrencyType): F[Vector[EitherNec[CBRError, MoexCurrency]]] = {
     val metals = for {
       client <- Stream.emit(mkClient[F](response)).covary[F]
-      logger <- Stream.emit(NoOpLogger.impl[F]).covary[F]
+//      logger <- Stream.emit(NoOpLogger.impl[F]).covary[F]
+      logger <- Stream.eval(Slf4jLogger.create)
       config = Config("url", "url", "url", "url", MoexCurrencyUrlConfig("url", "url"))
       moexCurrency = new MoexCurrencyServiceImpl[F](config, client, logger)
       res <- moexCurrency.getCurrencies(moexCurrencyType)
@@ -74,7 +76,7 @@ class MoexCurrencyServiceSpec extends UnitSpec {
     val resource = for {
       connEc <- ExecutionContexts.fixedThreadPool[F](poolSize)
       dataFile = moexCurrencyType match {
-        case USD => "usd_data.xml"
+        case USD => "new_usd_data.xml"
         case EUR => "eur_data.xml"
       }
       blocker = Blocker.liftExecutionContext(connEc)

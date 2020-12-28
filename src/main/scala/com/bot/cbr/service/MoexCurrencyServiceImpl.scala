@@ -16,7 +16,7 @@ import net.ruippeixotog.scalascraper.browser.JsoupBrowser
 import net.ruippeixotog.scalascraper.model.{Document, Element}
 import org.http4s.client.Client
 import net.ruippeixotog.scalascraper.dsl.DSL._
-import net.ruippeixotog.scalascraper.scraper.ContentExtractors.{element, elementList}
+import net.ruippeixotog.scalascraper.scraper.ContentExtractors.elementList
 import com.bot.cbr.domain.date._
 import java.time.LocalDate
 import java.util.Locale
@@ -28,6 +28,10 @@ import org.http4s.client.blaze.BlazeClientBuilder
 
 
 class MoexCurrencyServiceImpl[F[_]: Sync](config: Config, client: Client[F], logger: Logger[F]) extends MoexCurrencyService[F] {
+
+  val dateIndex = 0
+  val valueIndex = 1
+  val changeIndex = 2
 
   type E[A] = EitherNec[CBRError, A]
 
@@ -48,7 +52,7 @@ class MoexCurrencyServiceImpl[F[_]: Sync](config: Config, client: Client[F], log
     uri <- Stream.eval(url(moexCurType))
     _ <- Stream.eval(logger.info(s"getCurrencies($moexCurType) uri: $uri"))
     eiS <- Stream.eval(client.expect[String](uri)).attempt
-    _ <- Stream.eval(logger.info(eiS.fold(ex => ex.getMessage, identity)))
+    _ <- Stream.eval(logger.debug(eiS.fold(ex => ex.getMessage, identity)))
 
     browser = JsoupBrowser()
     eiDoc <- Stream.eval(Sync[F].delay(browser.parseString(eiS.fold(_ => "", identity)))).attempt
@@ -62,7 +66,8 @@ class MoexCurrencyServiceImpl[F[_]: Sync](config: Config, client: Client[F], log
 
   def parseMoexCurrencies(moexCurType: MoexCurrencyType, doc: Document): Stream[F, EitherNec[CBRError, MoexCurrency]] = {
     for {
-      quoteElem <- parseField(doc >> elementList(".quote__data tr")).traverse(Stream.emits(_)).drop(1)
+      _ <- Stream.eval(logger.debug("invoke parseMoexCurrencies"))
+      quoteElem <- parseField(doc >> elementList(".news-stock-table__content div.news-stock-table__row")).traverse(Stream.emits(_)).drop(1)
       _ <- Stream.eval(logger.debug(s"parse element: ${quoteElem.fold(_.toChain.toList.mkString(","), _.toString)}"))
       cur <- quoteElem match {
         case Right(elem) => Stream.emit(parseMoexCurrency(moexCurType, elem)).covary[F]
@@ -75,19 +80,24 @@ class MoexCurrencyServiceImpl[F[_]: Sync](config: Config, client: Client[F], log
 
   def parseMoexCurrency(moexCurType: MoexCurrencyType, elem: Element): E[MoexCurrency] = {
     val df = new DecimalFormat()
-    val date: E[LocalDate] = parseField(LocalDate.parse((elem >> element(".quote__date")).text, dateFormatShort))
-    val value: E[BigDecimal] = parseField {
-      val quoteValue = (elem >> element(".quote__value")).text
-      BigDecimal(df.parse(quoteValue).doubleValue())
-    }
+    val eiElems = parseField(elem >> elementList(".news-stock-table__cell"))
 
-    val change: E[BigDecimal] = parseField {
-      val quoteChange = (elem >> element(".quote__change")).text
-      BigDecimal(df.parse(quoteChange).doubleValue())
-    }
+    eiElems.flatMap { elems =>
 
-    val cur = (date, value, change).parMapN(MoexCurrency(moexCurType, _, _, _))
-    cur
+      val date = parseField(LocalDate.parse(elems(dateIndex).text, dateFormatShort))
+
+      val value = parseField {
+        val quoteValue = elems(valueIndex).text
+        BigDecimal(df.parse(quoteValue).doubleValue())
+      }
+
+      val change = parseField {
+        val quoteChange = elems(changeIndex).text
+        BigDecimal(df.parse(quoteChange).doubleValue())
+      }
+
+      (date, value, change).parMapN(MoexCurrency(moexCurType, _, _, _))
+    }
   }
 }
 
@@ -100,7 +110,7 @@ object MoexCurrencyServiceClient extends IOApp {
         client <- BlazeClientBuilder[F](serverEc).resource
         logger <- Resource.liftF(Slf4jLogger.create)
         config = Config("token", "url", "https://www.moex.com/export/derivatives/currency-rate.aspx", "url",
-          MoexCurrencyUrlConfig("https://news.yandex.ru/quotes/2002.html", "https://news.yandex.ru/quotes/2000.html")
+          MoexCurrencyUrlConfig("https://yandex.ru/news/quotes/2002.html", "https://yandex.ru/news/quotes/2000.html")
         )
         service = new MoexCurrencyServiceImpl[F](config, client, logger)
 
@@ -109,7 +119,7 @@ object MoexCurrencyServiceClient extends IOApp {
       currencies.use { service =>
         val r = for {
             logger <- Stream.eval(Slf4jLogger.create)
-            cur <- service.getCurrencies(MoexCurrencyType.EUR)
+            cur <- service.getCurrencies(MoexCurrencyType.USD)
             _ <- Stream.eval(logger.info(cur.show))
           } yield cur
 
