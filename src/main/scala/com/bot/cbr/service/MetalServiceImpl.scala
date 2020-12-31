@@ -48,7 +48,7 @@ class MetalServiceImpl[F[_]: Sync](config: Config,
 
         eMetal <- record match {
           case Right(node) => Stream.eval(parser.parse(node)).attempt
-            .map(_.leftMap(e => NonEmptyChain.one(WrongMetalData(e.getMessage): CBRError)))
+              .map(_.leftMap(e => NonEmptyChain(WrongMetalData(e.getMessage)): NonEmptyChain[CBRError]))
           case Left(nec) => Stream.eval(logger.error(s"Errors: $nec")).drain ++
               Stream.emit(nec.asLeft[Metal]).covary[F]
         }
